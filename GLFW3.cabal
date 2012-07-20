@@ -1,0 +1,37 @@
+name:         GLFW3
+version:      0.1.0
+
+category:     Graphics
+
+synopsis:     GLFW3 bindings
+description:  A port of the GLFW-b bindings to GLFW3: https://github.com/elmindreda/glfw
+              For now i have removed the originally included GLFW library, so you will need to 
+              built it yourself or obtain it otherwise.
+
+author:       Simon Voordouw <simonvoordouw@gmail.com>
+maintainer:   Simon Voordouw <simonvoordouw@gmail.com>
+
+license:      BSD3
+license-file: LICENSE
+
+cabal-version: >= 1.6
+build-type:    Simple
+
+extra-source-files:
+  README.md
+
+library
+  exposed-modules:
+    Graphics.UI.GLFW3
+
+  build-depends:
+    base == 4.*
+
+  hs-source-dirs:
+    src
+
+  extra-libraries: glfw
+
+  ghc-options: -Wall -O2
+  if impl(ghc >= 6.8)
+    ghc-options: -fwarn-tabs
