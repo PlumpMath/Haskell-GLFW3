@@ -4,7 +4,7 @@ version:      0.1.0
 category:     Graphics
 
 synopsis:     GLFW3 bindings
-description:  A port of the GLFW-b bindings to GLFW3: https://github.com/elmindreda/glfw
+description:  A port of the GLFW-b bindings to GLFW3: https://github.com/elmindreda/glfw.
               For now i have removed the originally included GLFW library, so you will need to 
               built it yourself or obtain it otherwise.
 
