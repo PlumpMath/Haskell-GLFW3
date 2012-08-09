@@ -28,9 +28,8 @@ module Graphics.UI.GLFW3
   , GammaRamp(..)
 
     -- *   Window handling
-  , openWindow
-  , isWindow
-  , closeWindow
+  , createWindow
+  , destroyWindow
   , setWindowTitle
   , setWindowSize
   , getWindowSize
@@ -44,7 +43,6 @@ module Graphics.UI.GLFW3
   , windowIsActive
   , windowIsIconified
   , windowIsResizable
-  , windowIsHardwareAccelerated
   , windowSupportsStereoRendering
   , getWindowRefreshRate
   , setWindowSizeCallback
@@ -156,17 +154,16 @@ foreign import ccall glfwGetError                 :: IO CInt
 foreign import ccall glfwErrorString              :: CInt -> IO CString
 foreign import ccall glfwSetErrorCallback         :: FunPtr GlfwErrorCallback -> IO ()
 
-foreign import ccall glfwGetVideoModes            :: Ptr VideoMode -> CInt -> IO CInt
+foreign import ccall glfwGetVideoModes            :: Ptr CInt -> IO (Ptr VideoMode)
 foreign import ccall glfwGetDesktopMode           :: Ptr VideoMode -> IO ()
 
 foreign import ccall glfwSetGamma                 :: CFloat -> IO ()
 foreign import ccall glfwGetGammaRamp             :: IO (Ptr GammaRamp)
 foreign import ccall glfwSetGammaRamp             :: Ptr GammaRamp -> IO ()
 
-foreign import ccall glfwOpenWindow               :: CInt -> CInt -> CInt -> CString -> CInt -> IO Window
-foreign import ccall glfwOpenWindowHint           :: CInt -> CInt -> IO ()
-foreign import ccall glfwIsWindow                 :: Window -> IO CInt
-foreign import ccall glfwCloseWindow              :: Window -> IO ()
+foreign import ccall glfwCreateWindow               :: CInt -> CInt -> CInt -> CString -> CInt -> IO Window
+foreign import ccall glfwDestroyWindow              :: Window -> IO ()
+foreign import ccall glfwWindowHint           :: CInt -> CInt -> IO ()
 foreign import ccall glfwSetWindowTitle           :: Window -> CString -> IO ()
 foreign import ccall glfwGetWindowSize            :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwSetWindowSize            :: Window -> CInt -> CInt -> IO ()
@@ -213,7 +210,7 @@ foreign import ccall glfwSetTime                  :: CDouble -> IO ()
 foreign import ccall glfwMakeContextCurrent       :: Window -> IO ()
 foreign import ccall glfwGetCurrentContext        :: IO Window
 foreign import ccall glfwCopyContext              :: Window -> Window -> CULong -> IO ()
-foreign import ccall glfwSwapBuffers              :: IO ()
+foreign import ccall glfwSwapBuffers              :: Window -> IO ()
 foreign import ccall glfwSwapInterval             :: CInt -> IO ()
 foreign import ccall glfwExtensionSupported       :: CString -> IO CInt
 
@@ -313,12 +310,11 @@ setErrorCallback cb = do
 -- Video mode information
 
 getVideoModes :: IO [VideoMode]
-getVideoModes =
-    allocaArray m $ \ptr -> do
-        n <- glfwGetVideoModes ptr (toC m)
-        peekArray (fromC n) ptr
-  where
-    m = 256
+getVideoModes  =
+  alloca $ \ptr -> do
+      vms <- glfwGetVideoModes ptr
+      cnt <- peek ptr
+      peekArray (fromC cnt) vms
 
 getDesktopMode :: IO VideoMode
 getDesktopMode =
@@ -393,8 +389,8 @@ instance Storable GammaRamp where
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Window handling
   
-openWindow :: DisplayOptions -> IO Window
-openWindow displayOptions = do
+createWindow :: DisplayOptions -> IO Window
+createWindow displayOptions = do
     let DisplayOptions
           { displayOptions_width                   = _displayOptions_width
           , displayOptions_height                  = _displayOptions_height
@@ -424,39 +420,34 @@ openWindow displayOptions = do
           } = displayOptions
 
     -- Add hints.
-    when (isJust _displayOptions_refreshRate)              $ glfwOpenWindowHint #{const GLFW_REFRESH_RATE}     $ toC (fromJust _displayOptions_refreshRate)
-    when (isJust _displayOptions_accumNumRedBits)          $ glfwOpenWindowHint #{const GLFW_ACCUM_RED_BITS}   $ toC (fromJust _displayOptions_accumNumRedBits)
-    when (isJust _displayOptions_accumNumGreenBits)        $ glfwOpenWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (fromJust _displayOptions_accumNumGreenBits)
-    when (isJust _displayOptions_accumNumBlueBits)         $ glfwOpenWindowHint #{const GLFW_ACCUM_BLUE_BITS}  $ toC (fromJust _displayOptions_accumNumBlueBits)
-    when (isJust _displayOptions_accumNumAlphaBits)        $ glfwOpenWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (fromJust _displayOptions_accumNumAlphaBits)
-    when (isJust _displayOptions_numAuxiliaryBuffers)      $ glfwOpenWindowHint #{const GLFW_AUX_BUFFERS}      $ toC (fromJust _displayOptions_numAuxiliaryBuffers)
-    when (isJust _displayOptions_numFsaaSamples)           $ glfwOpenWindowHint #{const GLFW_FSAA_SAMPLES}     $ toC (fromJust _displayOptions_numFsaaSamples)
+    when (isJust _displayOptions_refreshRate)              $ glfwWindowHint #{const GLFW_REFRESH_RATE}     $ toC (fromJust _displayOptions_refreshRate)
+    when (isJust _displayOptions_accumNumRedBits)          $ glfwWindowHint #{const GLFW_ACCUM_RED_BITS}   $ toC (fromJust _displayOptions_accumNumRedBits)
+    when (isJust _displayOptions_accumNumGreenBits)        $ glfwWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (fromJust _displayOptions_accumNumGreenBits)
+    when (isJust _displayOptions_accumNumBlueBits)         $ glfwWindowHint #{const GLFW_ACCUM_BLUE_BITS}  $ toC (fromJust _displayOptions_accumNumBlueBits)
+    when (isJust _displayOptions_accumNumAlphaBits)        $ glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (fromJust _displayOptions_accumNumAlphaBits)
+    when (isJust _displayOptions_numAuxiliaryBuffers)      $ glfwWindowHint #{const GLFW_AUX_BUFFERS}      $ toC (fromJust _displayOptions_numAuxiliaryBuffers)
+    when (isJust _displayOptions_numFsaaSamples)           $ glfwWindowHint #{const GLFW_FSAA_SAMPLES}     $ toC (fromJust _displayOptions_numFsaaSamples)
 
-    glfwOpenWindowHint #{const GLFW_WINDOW_RESIZABLE}      $ toC      _displayOptions_windowIsResizable
-    glfwOpenWindowHint #{const GLFW_STEREO}                $ toC      _displayOptions_stereoRendering
-    glfwOpenWindowHint #{const GLFW_OPENGL_VERSION_MAJOR}  $ toC (fst _displayOptions_openGLVersion)
-    glfwOpenWindowHint #{const GLFW_OPENGL_VERSION_MINOR}  $ toC (snd _displayOptions_openGLVersion)
-    glfwOpenWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC _displayOptions_openGLForwardCompatible
-    glfwOpenWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT}  $ toC _displayOptions_openGLDebugContext
-    glfwOpenWindowHint #{const GLFW_OPENGL_PROFILE}        $ toC _displayOptions_openGLProfile
-    glfwOpenWindowHint #{const GLFW_OPENGL_ROBUSTNESS}     $ toC _displayOptions_openGLRobustness
+    glfwWindowHint #{const GLFW_WINDOW_RESIZABLE}      $ toC      _displayOptions_windowIsResizable
+    glfwWindowHint #{const GLFW_STEREO}                $ toC      _displayOptions_stereoRendering
+    glfwWindowHint #{const GLFW_OPENGL_VERSION_MAJOR}  $ toC (fst _displayOptions_openGLVersion)
+    glfwWindowHint #{const GLFW_OPENGL_VERSION_MINOR}  $ toC (snd _displayOptions_openGLVersion)
+    glfwWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC _displayOptions_openGLForwardCompatible
+    glfwWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT}  $ toC _displayOptions_openGLDebugContext
+    glfwWindowHint #{const GLFW_OPENGL_PROFILE}        $ toC _displayOptions_openGLProfile
+    glfwWindowHint #{const GLFW_OPENGL_ROBUSTNESS}     $ toC _displayOptions_openGLRobustness
 
     -- Open the window.
-    withCString _displayOptions_title (\title -> glfwOpenWindow 
+    withCString _displayOptions_title (\title -> glfwCreateWindow 
         (toC _displayOptions_width)
         (toC _displayOptions_height)
         (toC _displayOptions_displayMode)
         title
         (toC _displayOptions_share))
 
-isWindow :: Window -> IO Bool
-isWindow wd = do
-    iw <- glfwIsWindow wd
-    return $ fromC iw
-
-closeWindow :: Window -> IO ()
-closeWindow wd =
-    glfwCloseWindow wd
+destroyWindow :: Window -> IO ()
+destroyWindow wd =
+    glfwDestroyWindow wd
 
 setWindowTitle :: Window -> String -> IO ()
 setWindowTitle wd t =
@@ -519,10 +510,6 @@ windowIsIconified wd =
 windowIsResizable :: Window -> IO Bool
 windowIsResizable wd =
     (not . fromC) `fmap` glfwGetWindowParam wd #{const GLFW_WINDOW_RESIZABLE}
-
-windowIsHardwareAccelerated :: Window -> IO Bool
-windowIsHardwareAccelerated wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_ACCELERATED}
 
 windowSupportsStereoRendering :: Window -> IO Bool
 windowSupportsStereoRendering wd =
@@ -1332,8 +1319,8 @@ getCurrentContext =
 --copyContext =
 --    glfwCopyContext
 
-swapBuffers :: IO ()
-swapBuffers = 
+swapBuffers :: Window -> IO ()
+swapBuffers =
     glfwSwapBuffers
 
 setSwapInterval :: Int -> IO ()
