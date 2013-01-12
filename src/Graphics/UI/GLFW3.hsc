@@ -1,29 +1,36 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE MultiParamTypeClasses    #-}
+{-# LANGUAGE EmptyDataDecls #-}
 
 module Graphics.UI.GLFW3
   ( -- *   Initialization, termination and version querying
     initialize
   , terminate
-  , getGlfwVersion
-  , getGlfwVersionString
+  , getVersion
+  , getVersionString
 
     -- *   Error handling
-  , getError
-  , getErrorString
   , setErrorCallback
     --
   , ErrorCallback
 
+  , getMonitors
+  , getPrimaryMonitor
+  , getMonitorName
+  , getMonitorParam
+  , setMonitorCallback
+    --
+  , MonitorCallback
+
     -- *   Video mode information
   , getVideoModes
-  , getDesktopMode
+  , getVideoMode
     --
   , VideoMode(..)
 
   , setGamma
   , getGammaRamp
-  --, setGammaRamp
+  , setGammaRamp
     --
   , GammaRamp(..)
 
@@ -33,31 +40,32 @@ module Graphics.UI.GLFW3
   , setWindowTitle
   , setWindowSize
   , getWindowSize
-  , setWindowPosition
-  , getWindowPosition
   , iconifyWindow
   , restoreWindow
+  , hideWindow
+  , showWindow
+  , getWindowMonitor
   , setWindowUserPointer
   , getWindowUserPointer
   , getWindowParameter
-  , windowIsActive
+  , windowIsFocused
   , windowIsIconified
   , windowIsResizable
   , windowSupportsStereoRendering
-  , getWindowRefreshRate
+  , setWindowPositionCallback
   , setWindowSizeCallback
   , setWindowCloseCallback
   , setWindowRefreshCallback
   , setWindowFocusCallback
   , setWindowIconifyCallback
     --
+  , WindowPositionCallback
   , WindowCloseCallback
   , WindowSizeCallback
   , WindowRefreshCallback
   , WindowFocusCallback
   , WindowIconifyCallback
   , Window
-  , DisplayMode(..)
   , DisplayOptions(..)
   , defaultDisplayOptions
 
@@ -70,14 +78,14 @@ module Graphics.UI.GLFW3
   , setInputMode
   , InputMode(..)
 
-  , keyIsPressed
+  , getKey
   , setKeyCallback
   , setCharCallback
   , Key(..)
   , CharCallback
   , KeyCallback
 
-  , mouseButtonIsPressed
+  , getMouseButton
   , getCursorPosition
   , setCursorPosition
   , getScrollOffset
@@ -97,9 +105,10 @@ module Graphics.UI.GLFW3
 
     -- *   Joystick input
   , joystickIsPresent
+  , getJoystickName
   , getNumJoystickAxes
   , getNumJoystickButtons
-  , getJoystickPosition
+  , getJoystickAxes
   , joystickButtonsArePressed
     --
   , Joystick(..)
@@ -115,29 +124,28 @@ module Graphics.UI.GLFW3
     -- *   OpenGL context
   , makeContextCurrent
   , getCurrentContext
-  --, copyContext
   , swapBuffers
   , setSwapInterval
   , extensionIsSupported
   , openGLContextIsForwardCompatible
   , openGLContextIsDebugContext
-  , openGLContextIsRobust
+  , openGLContextRobustness
   , getOpenGLProfile
   , OpenGLProfile(..)
   ) where
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-import Control.Monad         (when)
 import Data.Char             (chr, ord)
 import Data.IORef            (IORef, atomicModifyIORef, newIORef)
-import Data.Maybe            (fromJust, isJust)
+import Data.Maybe            (fromMaybe)
 import Data.Version          (Version(..))
 import Foreign.C.String      (CString, withCString, peekCString)
-import Foreign.C.Types       (CDouble(..), CFloat(..), CInt(..), CULong(..), CUShort(..), CUChar(..))
+import Foreign.C.Types       (CDouble(..), CFloat(..), CInt(..), CUShort(..), CUChar(..))
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array (allocaArray, peekArray)
-import Foreign.Ptr           (FunPtr, Ptr, freeHaskellFunPtr)
+import Foreign.Marshal.Utils (with)
+import Foreign.Ptr           (FunPtr, Ptr, nullPtr, freeHaskellFunPtr)
 import Foreign.Storable      (Storable(..))
 import System.IO.Unsafe      (unsafePerformIO)
 
@@ -150,30 +158,37 @@ foreign import ccall glfwTerminate                :: IO ()
 foreign import ccall glfwGetVersion               :: Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwGetVersionString         :: IO CString
 
-foreign import ccall glfwGetError                 :: IO CInt
-foreign import ccall glfwErrorString              :: CInt -> IO CString
 foreign import ccall glfwSetErrorCallback         :: FunPtr GlfwErrorCallback -> IO ()
 
+foreign import ccall glfwGetMonitors              :: Ptr CInt -> IO (Ptr Monitor)
+foreign import ccall glfwGetPrimaryMonitor        :: IO (Monitor)
+foreign import ccall glfwGetMonitorParam          :: Monitor -> CInt -> IO CInt
+foreign import ccall glfwGetMonitorName           :: Monitor -> IO CString
+foreign import ccall glfwSetMonitorCallback       :: FunPtr GlfwMonitorCallback -> IO ()
+
 foreign import ccall glfwGetVideoModes            :: Ptr CInt -> IO (Ptr VideoMode)
-foreign import ccall glfwGetDesktopMode           :: Ptr VideoMode -> IO ()
+foreign import ccall glfwGetVideoMode             :: Ptr VideoMode -> IO ()
 
 foreign import ccall glfwSetGamma                 :: CFloat -> IO ()
 foreign import ccall glfwGetGammaRamp             :: IO (Ptr GammaRamp)
 foreign import ccall glfwSetGammaRamp             :: Ptr GammaRamp -> IO ()
 
-foreign import ccall glfwCreateWindow               :: CInt -> CInt -> CInt -> CString -> CInt -> IO Window
-foreign import ccall glfwDestroyWindow              :: Window -> IO ()
-foreign import ccall glfwWindowHint           :: CInt -> CInt -> IO ()
+foreign import ccall glfwDefaultWindowHints       :: IO ()
+foreign import ccall glfwWindowHint               :: CInt -> CInt -> IO ()
+foreign import ccall glfwCreateWindow             :: CInt -> CInt -> CString -> Monitor -> Window -> IO (Window)
+foreign import ccall glfwDestroyWindow            :: Window -> IO ()
 foreign import ccall glfwSetWindowTitle           :: Window -> CString -> IO ()
 foreign import ccall glfwGetWindowSize            :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwSetWindowSize            :: Window -> CInt -> CInt -> IO ()
-foreign import ccall glfwGetWindowPos             :: Window -> Ptr CInt -> Ptr CInt -> IO ()
-foreign import ccall glfwSetWindowPos             :: Window -> CInt -> CInt -> IO ()
 foreign import ccall glfwIconifyWindow            :: Window -> IO ()
 foreign import ccall glfwRestoreWindow            :: Window -> IO ()
+foreign import ccall glfwShowWindow               :: Window -> IO ()
+foreign import ccall glfwHideWindow               :: Window -> IO ()
+foreign import ccall glfwGetWindowMonitor         :: Window -> IO Monitor
 foreign import ccall glfwGetWindowParam           :: Window -> CInt -> IO CInt
-foreign import ccall glfwSetWindowUserPointer     :: Window -> Ptr a -> IO ()
-foreign import ccall glfwGetWindowUserPointer     :: Window -> IO (Ptr a)
+foreign import ccall glfwSetWindowUserPointer     :: Window -> Ptr () -> IO ()
+foreign import ccall glfwGetWindowUserPointer     :: Window -> IO (Ptr ())
+foreign import ccall glfwSetWindowPosCallback :: FunPtr GlfwWindowPositionCallback -> IO ()
 foreign import ccall glfwSetWindowSizeCallback    :: FunPtr GlfwWindowSizeCallback -> IO ()
 foreign import ccall glfwSetWindowCloseCallback   :: FunPtr GlfwWindowCloseCallback -> IO ()
 foreign import ccall glfwSetWindowRefreshCallback :: FunPtr GlfwWindowRefreshCallback -> IO ()
@@ -187,19 +202,20 @@ foreign import ccall glfwGetInputMode             :: Window -> CInt -> IO CInt
 foreign import ccall glfwSetInputMode             :: Window -> CInt -> CInt -> IO ()
 foreign import ccall glfwGetKey                   :: Window -> CInt -> IO CInt
 foreign import ccall glfwGetMouseButton           :: Window -> CInt -> IO CInt
-foreign import ccall glfwGetCursorPos              :: Window -> Ptr CInt -> Ptr CInt -> IO ()
-foreign import ccall glfwSetCursorPos              :: Window -> CInt -> CInt -> IO ()
+foreign import ccall glfwGetCursorPos             :: Window -> Ptr CInt -> Ptr CInt -> IO ()
+foreign import ccall glfwSetCursorPos             :: Window -> CInt -> CInt -> IO ()
 foreign import ccall glfwGetScrollOffset          :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwSetKeyCallback           :: FunPtr GlfwKeyCallback -> IO ()
 foreign import ccall glfwSetCharCallback          :: FunPtr GlfwCharCallback -> IO ()
 foreign import ccall glfwSetMouseButtonCallback   :: FunPtr GlfwMouseButtonCallback -> IO ()
-foreign import ccall glfwSetCursorPosCallback      :: FunPtr GlfwCursorPositionCallback -> IO ()
+foreign import ccall glfwSetCursorPosCallback     :: FunPtr GlfwCursorPositionCallback -> IO ()
 foreign import ccall glfwSetCursorEnterCallback   :: FunPtr GlfwCursorEnterCallback -> IO ()
 foreign import ccall glfwSetScrollCallback        :: FunPtr GlfwScrollCallback -> IO ()
 
 foreign import ccall glfwGetJoystickParam         :: CInt -> CInt -> IO CInt
-foreign import ccall glfwGetJoystickPos           :: CInt -> Ptr CFloat -> CInt -> IO CInt
+foreign import ccall glfwGetJoystickAxes          :: CInt -> Ptr CFloat -> CInt -> IO CInt
 foreign import ccall glfwGetJoystickButtons       :: CInt -> Ptr CUChar -> CInt -> IO CInt
+foreign import ccall glfwGetJoystickName          :: CInt -> IO CString
 
 foreign import ccall glfwSetClipboardString       :: Window -> CString -> IO ()
 foreign import ccall glfwGetClipboardString       :: Window -> IO CString
@@ -208,59 +224,67 @@ foreign import ccall glfwGetTime                  :: IO CDouble
 foreign import ccall glfwSetTime                  :: CDouble -> IO ()
 
 foreign import ccall glfwMakeContextCurrent       :: Window -> IO ()
-foreign import ccall glfwGetCurrentContext        :: IO Window
-foreign import ccall glfwCopyContext              :: Window -> Window -> CULong -> IO ()
+foreign import ccall glfwGetCurrentContext        :: IO (Window)
 foreign import ccall glfwSwapBuffers              :: Window -> IO ()
 foreign import ccall glfwSwapInterval             :: CInt -> IO ()
 foreign import ccall glfwExtensionSupported       :: CString -> IO CInt
 
 type GlfwErrorCallback = CInt -> CString -> IO ()
 
-type GlfwWindowSizeCallback    = Window -> CInt -> CInt -> IO ()
-type GlfwWindowCloseCallback   = Window                 -> IO ()
-type GlfwWindowRefreshCallback = Window                 -> IO ()
-type GlfwWindowFocusCallback   = Window -> CInt         -> IO ()
-type GlfwWindowIconifyCallback = Window -> CInt         -> IO ()
+type GlfwMonitorCallback = Monitor -> CInt -> IO ()
 
-type GlfwKeyCallback           = Window -> CInt -> CInt -> IO ()
-type GlfwCharCallback          = Window -> CInt         -> IO ()
+type GlfwWindowPositionCallback = Window -> CInt -> CInt -> IO ()
+type GlfwWindowSizeCallback     = Window -> CInt -> CInt -> IO ()
+type GlfwWindowCloseCallback    = Window                 -> IO ()
+type GlfwWindowRefreshCallback  = Window                 -> IO ()
+type GlfwWindowFocusCallback    = Window -> CInt         -> IO ()
+type GlfwWindowIconifyCallback  = Window -> CInt         -> IO ()
 
-type GlfwMouseButtonCallback   = Window -> CInt -> CInt -> IO ()
+type GlfwKeyCallback            = Window -> CInt -> CInt -> IO ()
+type GlfwCharCallback           = Window -> CInt         -> IO ()
+
+type GlfwMouseButtonCallback    = Window -> CInt -> CInt -> IO ()
 type GlfwCursorPositionCallback = Window -> CInt -> CInt -> IO ()
-type GlfwCursorEnterCallback   = Window -> CInt         -> IO ()
-type GlfwScrollCallback        = Window -> CDouble -> CDouble -> IO ()
+type GlfwCursorEnterCallback    = Window -> CInt         -> IO ()
+type GlfwScrollCallback         = Window -> CDouble -> CDouble -> IO ()
 
 
-type ErrorCallback = Int -> IO String -> IO ()
+type ErrorCallback = Int -> String -> IO ()
 
-type WindowSizeCallback    = Window -> Int -> Int -> IO ()
-type WindowCloseCallback   = Window               -> IO ()
-type WindowRefreshCallback = Window               -> IO ()
-type WindowFocusCallback   = Window -> Bool       -> IO ()
-type WindowIconifyCallback = Window -> Bool       -> IO ()
+type MonitorCallback = Monitor -> Int -> IO ()
 
-type KeyCallback           = Window -> Key -> Bool              -> IO ()
-type CharCallback          = Window -> Char                     -> IO ()
+type WindowPositionCallback = Window -> Int -> Int -> IO ()
+type WindowSizeCallback     = Window -> Int -> Int -> IO ()
+type WindowCloseCallback    = Window               -> IO ()
+type WindowRefreshCallback  = Window               -> IO ()
+type WindowFocusCallback    = Window -> Bool       -> IO ()
+type WindowIconifyCallback  = Window -> Bool       -> IO ()
 
-type MouseButtonCallback   = Window -> MouseButton -> Bool -> IO ()
+type KeyCallback            = Window -> Key -> Bool              -> IO ()
+type CharCallback           = Window -> Char                     -> IO ()
+
+type MouseButtonCallback    = Window -> MouseButton -> Bool -> IO ()
 type CursorPositionCallback = Window -> Int -> Int          -> IO ()
-type CursorEnterCallback   = Window -> Bool                -> IO ()
-type ScrollCallback        = Window -> Double -> Double    -> IO ()
+type CursorEnterCallback    = Window -> Bool                -> IO ()
+type ScrollCallback         = Window -> Double -> Double    -> IO ()
 
 
-foreign import ccall "wrapper" wrapErrorCallback         :: GlfwErrorCallback         -> IO (FunPtr GlfwErrorCallback)
+foreign import ccall "wrapper" wrapErrorCallback          :: GlfwErrorCallback         -> IO (FunPtr GlfwErrorCallback)
 
-foreign import ccall "wrapper" wrapWindowSizeCallback    :: GlfwWindowSizeCallback    -> IO (FunPtr GlfwWindowSizeCallback)
-foreign import ccall "wrapper" wrapWindowCloseCallback   :: GlfwWindowCloseCallback   -> IO (FunPtr GlfwWindowCloseCallback)
-foreign import ccall "wrapper" wrapWindowRefreshCallback :: GlfwWindowRefreshCallback -> IO (FunPtr GlfwWindowRefreshCallback)
-foreign import ccall "wrapper" wrapWindowFocusCallback   :: GlfwWindowFocusCallback   -> IO (FunPtr GlfwWindowFocusCallback)
-foreign import ccall "wrapper" wrapWindowIconifyCallback :: GlfwWindowIconifyCallback -> IO (FunPtr GlfwWindowIconifyCallback)
+foreign import ccall "wrapper" wrapMonitorCallback        :: GlfwMonitorCallback       -> IO (FunPtr GlfwMonitorCallback)
 
-foreign import ccall "wrapper" wrapKeyCallback           :: GlfwKeyCallback           -> IO (FunPtr GlfwKeyCallback)
-foreign import ccall "wrapper" wrapCharCallback          :: GlfwCharCallback          -> IO (FunPtr GlfwCharCallback)
+foreign import ccall "wrapper" wrapWindowPositionCallback :: GlfwWindowPositionCallback -> IO (FunPtr GlfwWindowPositionCallback)
+foreign import ccall "wrapper" wrapWindowSizeCallback     :: GlfwWindowSizeCallback    -> IO (FunPtr GlfwWindowSizeCallback)
+foreign import ccall "wrapper" wrapWindowCloseCallback    :: GlfwWindowCloseCallback   -> IO (FunPtr GlfwWindowCloseCallback)
+foreign import ccall "wrapper" wrapWindowRefreshCallback  :: GlfwWindowRefreshCallback -> IO (FunPtr GlfwWindowRefreshCallback)
+foreign import ccall "wrapper" wrapWindowFocusCallback    :: GlfwWindowFocusCallback   -> IO (FunPtr GlfwWindowFocusCallback)
+foreign import ccall "wrapper" wrapWindowIconifyCallback  :: GlfwWindowIconifyCallback -> IO (FunPtr GlfwWindowIconifyCallback)
+
+foreign import ccall "wrapper" wrapKeyCallback            :: GlfwKeyCallback           -> IO (FunPtr GlfwKeyCallback)
+foreign import ccall "wrapper" wrapCharCallback           :: GlfwCharCallback          -> IO (FunPtr GlfwCharCallback)
 
 foreign import ccall "wrapper" wrapMouseButtonCallback    :: GlfwMouseButtonCallback   -> IO (FunPtr GlfwMouseButtonCallback)
-foreign import ccall "wrapper" wrapCursorPositionCallback  :: GlfwCursorPositionCallback -> IO (FunPtr GlfwCursorPositionCallback)
+foreign import ccall "wrapper" wrapCursorPositionCallback :: GlfwCursorPositionCallback -> IO (FunPtr GlfwCursorPositionCallback)
 foreign import ccall "wrapper" wrapCursorEnterCallback    :: GlfwCursorEnterCallback   -> IO (FunPtr GlfwCursorEnterCallback)
 foreign import ccall "wrapper" wrapScrollCallback         :: GlfwScrollCallback        -> IO (FunPtr GlfwScrollCallback)
 
@@ -275,8 +299,8 @@ terminate :: IO ()
 terminate =
     glfwTerminate
 
-getGlfwVersion :: IO Version
-getGlfwVersion =
+getVersion :: IO Version
+getVersion =
     alloca $ \p0 ->
     alloca $ \p1 ->
     alloca $ \p2 -> do
@@ -286,25 +310,54 @@ getGlfwVersion =
         v2 <- fromC `fmap` peek p2
         return $ Version [v0, v1, v2] []
 
-getGlfwVersionString :: IO String
-getGlfwVersionString =
+getVersionString :: IO String
+getVersionString =
     glfwGetVersionString >>= peekCString
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Error handling
 
-getError :: IO Int
-getError = 
-    fromC `fmap` glfwGetError
-
-getErrorString :: Int -> IO String
-getErrorString e =
-    glfwErrorString (toC e) >>= peekCString
-
 setErrorCallback :: ErrorCallback -> IO ()
 setErrorCallback cb = do
-    ccb <- wrapErrorCallback (\er ers -> cb (fromC er) (peekCString ers))
+    ccb <- wrapErrorCallback (\er ers -> peekCString ers >>= cb (fromC er))
     glfwSetErrorCallback ccb
     storeCallback errorCallback ccb
+
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+-- Monitor
+
+getMonitors :: IO [Monitor]
+getMonitors =
+  alloca $ \ptr -> do
+    mns <- glfwGetMonitors ptr
+    cnt <- peek ptr
+    peekArray (fromC cnt) mns
+
+getPrimaryMonitor :: IO (Monitor)
+getPrimaryMonitor = glfwGetPrimaryMonitor
+
+getMonitorParam :: Monitor -> MonitorParam -> IO Int
+getMonitorParam mon par = fromC `fmap` glfwGetMonitorParam mon (toC par)
+
+getMonitorName :: Monitor -> IO String
+getMonitorName mon = glfwGetMonitorName mon >>= peekCString
+
+setMonitorCallback :: MonitorCallback -> IO ()
+setMonitorCallback cb = do
+  ccb <- wrapMonitorCallback (\mon ev -> cb mon (fromC ev))
+  glfwSetMonitorCallback ccb
+  storeCallback monitorCallback ccb
+
+data MonitorParam = MonitorWidth
+                  | MonitorHeight
+                  | MonitorPositionX
+                  | MonitorPositionY
+
+instance C MonitorParam CInt where
+  toC pr = case pr of
+    MonitorWidth -> #{const GLFW_MONITOR_WIDTH_MM}
+    MonitorHeight -> #{const GLFW_MONITOR_HEIGHT_MM}
+    MonitorPositionX -> #{const GLFW_MONITOR_POS_X}
+    MonitorPositionY -> #{const GLFW_MONITOR_POS_Y}
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Video mode information
@@ -316,10 +369,10 @@ getVideoModes  =
       cnt <- peek ptr
       peekArray (fromC cnt) vms
 
-getDesktopMode :: IO VideoMode
-getDesktopMode =
+getVideoMode :: IO VideoMode
+getVideoMode =
     alloca $ \ptr -> do
-        glfwGetDesktopMode ptr
+        glfwGetVideoMode ptr
         peek ptr
 
 -- -- -- -- -- -- -- -- -- --
@@ -360,6 +413,10 @@ getGammaRamp :: IO GammaRamp
 getGammaRamp =
     glfwGetGammaRamp >>= peek
 
+setGammaRamp :: GammaRamp -> IO ()
+setGammaRamp gr =
+    with gr (\ptr -> glfwSetGammaRamp ptr)
+              
 -- -- -- -- -- -- -- -- -- --
 data GammaRamp = GammaRamp
     { red   :: Int
@@ -368,7 +425,7 @@ data GammaRamp = GammaRamp
     } deriving (Eq, Ord, Read, Show)
 
 instance Storable GammaRamp where
-    sizeOf    _ = #{const GLFW_GAMMA_RAMP_SIZE}
+    sizeOf    _ = #{const sizeof(GLFWgammaramp)}
     alignment _ = alignment (undefined :: CUShort)
 
     peek ptr = do
@@ -389,61 +446,44 @@ instance Storable GammaRamp where
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Window handling
   
-createWindow :: DisplayOptions -> IO Window
-createWindow displayOptions = do
-    let DisplayOptions
-          { displayOptions_width                   = _displayOptions_width
-          , displayOptions_height                  = _displayOptions_height
-          , displayOptions_numRedBits              = _displayOptions_numRedBits
-          , displayOptions_numGreenBits            = _displayOptions_numGreenBits
-          , displayOptions_numBlueBits             = _displayOptions_numBlueBits
-          , displayOptions_numAlphaBits            = _displayOptions_numAlphaBits
-          , displayOptions_numDepthBits            = _displayOptions_numDepthBits
-          , displayOptions_numStencilBits          = _displayOptions_numStencilBits
-          , displayOptions_displayMode             = _displayOptions_displayMode
-          , displayOptions_title                   = _displayOptions_title
-          , displayOptions_share                   = _displayOptions_share
-          , displayOptions_refreshRate             = _displayOptions_refreshRate
-          , displayOptions_accumNumRedBits         = _displayOptions_accumNumRedBits
-          , displayOptions_accumNumGreenBits       = _displayOptions_accumNumGreenBits
-          , displayOptions_accumNumBlueBits        = _displayOptions_accumNumBlueBits
-          , displayOptions_accumNumAlphaBits       = _displayOptions_accumNumAlphaBits
-          , displayOptions_numAuxiliaryBuffers     = _displayOptions_numAuxiliaryBuffers
-          , displayOptions_numFsaaSamples          = _displayOptions_numFsaaSamples
-          , displayOptions_windowIsResizable       = _displayOptions_windowIsResizable
-          , displayOptions_stereoRendering         = _displayOptions_stereoRendering
-          , displayOptions_openGLVersion           = _displayOptions_openGLVersion
-          , displayOptions_openGLForwardCompatible = _displayOptions_openGLForwardCompatible
-          , displayOptions_openGLDebugContext      = _displayOptions_openGLDebugContext
-          , displayOptions_openGLProfile           = _displayOptions_openGLProfile
-          , displayOptions_openGLRobustness        = _displayOptions_openGLRobustness
-          } = displayOptions
+createWindow :: DisplayOptions -> IO (Window)
+createWindow displOpts = do
 
+    glfwDefaultWindowHints
     -- Add hints.
-    when (isJust _displayOptions_refreshRate)              $ glfwWindowHint #{const GLFW_REFRESH_RATE}     $ toC (fromJust _displayOptions_refreshRate)
-    when (isJust _displayOptions_accumNumRedBits)          $ glfwWindowHint #{const GLFW_ACCUM_RED_BITS}   $ toC (fromJust _displayOptions_accumNumRedBits)
-    when (isJust _displayOptions_accumNumGreenBits)        $ glfwWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (fromJust _displayOptions_accumNumGreenBits)
-    when (isJust _displayOptions_accumNumBlueBits)         $ glfwWindowHint #{const GLFW_ACCUM_BLUE_BITS}  $ toC (fromJust _displayOptions_accumNumBlueBits)
-    when (isJust _displayOptions_accumNumAlphaBits)        $ glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (fromJust _displayOptions_accumNumAlphaBits)
-    when (isJust _displayOptions_numAuxiliaryBuffers)      $ glfwWindowHint #{const GLFW_AUX_BUFFERS}      $ toC (fromJust _displayOptions_numAuxiliaryBuffers)
-    when (isJust _displayOptions_numFsaaSamples)           $ glfwWindowHint #{const GLFW_FSAA_SAMPLES}     $ toC (fromJust _displayOptions_numFsaaSamples)
+    glfwWindowHint #{const GLFW_CLIENT_API} $ toC (displayOptions_clientAPI displOpts)
+    glfwWindowHint #{const GLFW_RED_BITS} $ toC (displayOptions_numRedBits displOpts)
+    glfwWindowHint #{const GLFW_GREEN_BITS} $ toC (displayOptions_numGreenBits displOpts)
+    glfwWindowHint #{const GLFW_BLUE_BITS} $ toC (displayOptions_numBlueBits displOpts)
+    glfwWindowHint #{const GLFW_ALPHA_BITS} $ toC (displayOptions_numAlphaBits displOpts)
+    glfwWindowHint #{const GLFW_DEPTH_BITS} $ toC (displayOptions_numDepthBits displOpts)
+    glfwWindowHint #{const GLFW_SRGB_CAPABLE} $ toC (displayOptions_sRGBCapable displOpts)
 
-    glfwWindowHint #{const GLFW_WINDOW_RESIZABLE}      $ toC      _displayOptions_windowIsResizable
-    glfwWindowHint #{const GLFW_STEREO}                $ toC      _displayOptions_stereoRendering
-    glfwWindowHint #{const GLFW_OPENGL_VERSION_MAJOR}  $ toC (fst _displayOptions_openGLVersion)
-    glfwWindowHint #{const GLFW_OPENGL_VERSION_MINOR}  $ toC (snd _displayOptions_openGLVersion)
-    glfwWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC _displayOptions_openGLForwardCompatible
-    glfwWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT}  $ toC _displayOptions_openGLDebugContext
-    glfwWindowHint #{const GLFW_OPENGL_PROFILE}        $ toC _displayOptions_openGLProfile
-    glfwWindowHint #{const GLFW_OPENGL_ROBUSTNESS}     $ toC _displayOptions_openGLRobustness
+    glfwWindowHint #{const GLFW_ACCUM_RED_BITS} $ toC (displayOptions_accumNumRedBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (displayOptions_accumNumGreenBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_BLUE_BITS} $ toC (displayOptions_accumNumBlueBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (displayOptions_accumNumAlphaBits displOpts)
+    glfwWindowHint #{const GLFW_AUX_BUFFERS} $ toC (displayOptions_numAuxiliaryBuffers displOpts)
+    glfwWindowHint #{const GLFW_SAMPLES} $ toC (displayOptions_numFsaaSamples displOpts)
+                     
+    glfwWindowHint #{const GLFW_RESIZABLE} $ toC (displayOptions_resizable displOpts)
+    glfwWindowHint #{const GLFW_VISIBLE} $ toC (displayOptions_visible displOpts)
+    glfwWindowHint #{const GLFW_STEREO} $ toC (displayOptions_stereoRendering displOpts)
+
+    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MAJOR} $ toC (fst $ displayOptions_openGLVersion displOpts)
+    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MINOR} $ toC (snd $ displayOptions_openGLVersion displOpts)
+    glfwWindowHint #{const GLFW_CONTEXT_ROBUSTNESS}  $ toC (displayOptions_openGLRobustness displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC (displayOptions_openGLForwardCompatible displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT} $ toC (displayOptions_openGLDebugContext displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_PROFILE} $ toC (displayOptions_openGLProfile displOpts)
 
     -- Open the window.
-    withCString _displayOptions_title (\title -> glfwCreateWindow 
-        (toC _displayOptions_width)
-        (toC _displayOptions_height)
-        (toC _displayOptions_displayMode)
+    withCString (displayOptions_title displOpts) (\title -> glfwCreateWindow 
+        (toC $ displayOptions_width displOpts)
+        (toC $ displayOptions_height displOpts)
         title
-        (toC _displayOptions_share))
+        (fromMaybe nullPtr (displayOptions_monitor displOpts))
+        (fromMaybe nullPtr (displayOptions_share displOpts)))
 
 destroyWindow :: Window -> IO ()
 destroyWindow wd =
@@ -466,42 +506,34 @@ setWindowSize :: Window -> Int -> Int -> IO ()
 setWindowSize wd w h =
     glfwSetWindowSize wd (toC w) (toC h)
 
-getWindowPosition :: Window -> IO (Int, Int)
-getWindowPosition wd =
-    alloca $ \xp ->
-    alloca $ \yp -> do
-        glfwGetWindowPos wd xp yp
-        x <- peek xp
-        y <- peek yp
-        return (fromC x, fromC y)
-
-setWindowPosition :: Window -> Int -> Int -> IO ()
-setWindowPosition wd w h =
-    glfwSetWindowPos wd (toC w) (toC h)
-
 iconifyWindow :: Window -> IO ()
-iconifyWindow wd =
-    glfwIconifyWindow wd
+iconifyWindow = glfwIconifyWindow
 
 restoreWindow :: Window -> IO ()
-restoreWindow wd =
-    glfwRestoreWindow wd
+restoreWindow = glfwRestoreWindow
 
-setWindowUserPointer :: Window -> Ptr a -> IO ()
-setWindowUserPointer wd ptr =
-    glfwSetWindowUserPointer wd ptr
+hideWindow :: Window -> IO ()
+hideWindow = glfwHideWindow
 
-getWindowUserPointer :: Window -> IO (Ptr a)
-getWindowUserPointer wd =
-    glfwGetWindowUserPointer wd
+showWindow :: Window -> IO ()
+showWindow = glfwShowWindow
+
+getWindowMonitor :: Window -> IO Monitor
+getWindowMonitor = glfwGetWindowMonitor
+
+setWindowUserPointer :: Window -> Ptr ()-> IO ()
+setWindowUserPointer = glfwSetWindowUserPointer
+
+getWindowUserPointer :: Window -> IO (Ptr ())
+getWindowUserPointer = glfwGetWindowUserPointer
 
 getWindowParameter :: Window -> WindowParameter -> IO Int
 getWindowParameter wd wv =
     fromC `fmap` glfwGetWindowParam wd (toC wv)
 
-windowIsActive :: Window -> IO Bool
-windowIsActive wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_ACTIVE}
+windowIsFocused :: Window -> IO Bool
+windowIsFocused wd =
+    fromC `fmap` glfwGetWindowParam wd #{const GLFW_FOCUSED}
 
 windowIsIconified :: Window -> IO Bool
 windowIsIconified wd =
@@ -509,16 +541,18 @@ windowIsIconified wd =
 
 windowIsResizable :: Window -> IO Bool
 windowIsResizable wd =
-    (not . fromC) `fmap` glfwGetWindowParam wd #{const GLFW_WINDOW_RESIZABLE}
+    (not . fromC) `fmap` glfwGetWindowParam wd #{const GLFW_RESIZABLE}
 
 windowSupportsStereoRendering :: Window -> IO Bool
 windowSupportsStereoRendering wd =
     fromC `fmap` glfwGetWindowParam wd #{const GLFW_STEREO}
 
-getWindowRefreshRate :: Window -> IO Int
-getWindowRefreshRate wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_REFRESH_RATE}
-
+setWindowPositionCallback :: WindowPositionCallback -> IO ()
+setWindowPositionCallback cb = do
+    ccb <- wrapWindowPositionCallback (\wd x y -> cb wd (fromC x) (fromC y))
+    glfwSetWindowPosCallback ccb
+    storeCallback windowPositionCallback ccb
+    
 setWindowSizeCallback :: WindowSizeCallback -> IO ()
 setWindowSizeCallback cb = do
     ccb <- wrapWindowSizeCallback (\wd w h -> cb wd (fromC w) (fromC h))
@@ -550,22 +584,9 @@ setWindowIconifyCallback cb = do
     storeCallback windowIconifyCallback ccb
 
 -- -- -- -- -- -- -- -- -- --
-type Window = Ptr ()
-
-data DisplayMode
-  = Windowed
-  | Fullscreen
-  deriving (Eq, Ord, Bounded, Enum, Read, Show)
-
-instance C DisplayMode CInt where
-  toC dm = case dm of
-      Windowed   -> #{const GLFW_WINDOWED}
-      Fullscreen -> #{const GLFW_FULLSCREEN}
-
-  fromC i = case i of
-      #{const GLFW_WINDOWED}   -> Windowed
-      #{const GLFW_FULLSCREEN} -> Fullscreen
-      _                        -> makeFromCError "DisplayMode" i
+type Monitor = Ptr ()
+data WindowStruct
+type Window = Ptr WindowStruct
 
 data WindowParameter
   = NumRedBits
@@ -596,7 +617,7 @@ instance C WindowParameter CInt where
       NumAccumBlueBits  -> #const GLFW_ACCUM_BLUE_BITS
       NumAccumAlphaBits -> #const GLFW_ACCUM_ALPHA_BITS
       NumAuxBuffers     -> #const GLFW_AUX_BUFFERS
-      NumFsaaSamples    -> #const GLFW_FSAA_SAMPLES
+      NumFsaaSamples    -> #const GLFW_SAMPLES
 
 data DisplayOptions = DisplayOptions
   { displayOptions_width                   :: Int
@@ -607,53 +628,57 @@ data DisplayOptions = DisplayOptions
   , displayOptions_numAlphaBits            :: Int
   , displayOptions_numDepthBits            :: Int
   , displayOptions_numStencilBits          :: Int
-  , displayOptions_displayMode             :: DisplayMode
   , displayOptions_title                   :: String
-  , displayOptions_share                   :: Int
-  , displayOptions_refreshRate             :: Maybe Int
-  , displayOptions_accumNumRedBits         :: Maybe Int
-  , displayOptions_accumNumGreenBits       :: Maybe Int
-  , displayOptions_accumNumBlueBits        :: Maybe Int
-  , displayOptions_accumNumAlphaBits       :: Maybe Int
-  , displayOptions_numAuxiliaryBuffers     :: Maybe Int
-  , displayOptions_numFsaaSamples          :: Maybe Int
-  , displayOptions_windowIsResizable       :: Bool
+  , displayOptions_monitor                 :: Maybe (Monitor)
+  , displayOptions_share                   :: Maybe (Window)
+  , displayOptions_accumNumRedBits         :: Int
+  , displayOptions_accumNumGreenBits       :: Int
+  , displayOptions_accumNumBlueBits        :: Int
+  , displayOptions_accumNumAlphaBits       :: Int
+  , displayOptions_numAuxiliaryBuffers     :: Int
+  , displayOptions_numFsaaSamples          :: Int
+  , displayOptions_sRGBCapable             :: Bool
+  , displayOptions_resizable               :: Bool
+  , displayOptions_visible                 :: Bool
   , displayOptions_stereoRendering         :: Bool
+  , displayOptions_clientAPI               :: ClientAPI
+  , displayOptions_openGLProfile           :: OpenGLProfile
   , displayOptions_openGLVersion           :: (Int, Int)
   , displayOptions_openGLForwardCompatible :: Bool
   , displayOptions_openGLDebugContext      :: Bool
-  , displayOptions_openGLProfile           :: OpenGLProfile
   , displayOptions_openGLRobustness        :: OpenGLRobustness
 
-  } deriving (Eq, Ord, Read, Show)
+  } deriving (Eq, Ord, Show)
 
 defaultDisplayOptions :: DisplayOptions
 defaultDisplayOptions =
     DisplayOptions
-      { displayOptions_width                   = 0
-      , displayOptions_height                  = 0
-      , displayOptions_numRedBits              = 0
-      , displayOptions_numGreenBits            = 0
-      , displayOptions_numBlueBits             = 0
-      , displayOptions_numAlphaBits            = 0
-      , displayOptions_numDepthBits            = 0
-      , displayOptions_numStencilBits          = 0
-      , displayOptions_displayMode             = Windowed
+      { displayOptions_width                   = 960
+      , displayOptions_height                  = 640
+      , displayOptions_numRedBits              = 8
+      , displayOptions_numGreenBits            = 8
+      , displayOptions_numBlueBits             = 8
+      , displayOptions_numAlphaBits            = 8
+      , displayOptions_numDepthBits            = 24
+      , displayOptions_numStencilBits          = 8
       , displayOptions_title                   = "GLFW3"
-      , displayOptions_share                   = 0
-      , displayOptions_refreshRate             = Nothing
-      , displayOptions_accumNumRedBits         = Nothing
-      , displayOptions_accumNumGreenBits       = Nothing
-      , displayOptions_accumNumBlueBits        = Nothing
-      , displayOptions_accumNumAlphaBits       = Nothing
-      , displayOptions_numAuxiliaryBuffers     = Nothing
-      , displayOptions_numFsaaSamples          = Nothing
-      , displayOptions_windowIsResizable       = True
+      , displayOptions_monitor                 = Nothing
+      , displayOptions_share                   = Nothing
+      , displayOptions_accumNumRedBits         = 0
+      , displayOptions_accumNumGreenBits       = 0
+      , displayOptions_accumNumBlueBits        = 0
+      , displayOptions_accumNumAlphaBits       = 0
+      , displayOptions_numAuxiliaryBuffers     = 0
+      , displayOptions_numFsaaSamples          = 0
+      , displayOptions_sRGBCapable             = False
+      , displayOptions_resizable               = True
+      , displayOptions_visible                 = True
       , displayOptions_stereoRendering         = False
+      , displayOptions_clientAPI               = OpenGL
       , displayOptions_openGLVersion           = (3,2)
       , displayOptions_openGLForwardCompatible = True
       , displayOptions_openGLDebugContext      = False
-      , displayOptions_openGLProfile           = DefaultProfile
+      , displayOptions_openGLProfile           = CoreProfile
       , displayOptions_openGLRobustness        = NoRobustness
       }
 
@@ -683,31 +708,28 @@ setInputMode wd im b =
 -- -- -- -- -- -- -- -- -- --
 
 data InputMode 
-  = StickyKeys
+  = CursorMode
+  | StickyKeys
   | StickyMouseButtons
-  | SystemKeys
-  | KeyRepeat
   deriving (Eq, Ord, Bounded, Enum, Read, Show)
 
 instance C InputMode CInt where
   toC im = case im of
+    CursorMode -> #{const GLFW_CURSOR_MODE}
     StickyKeys -> #{const GLFW_STICKY_KEYS}
     StickyMouseButtons -> #{const GLFW_STICKY_MOUSE_BUTTONS}
-    SystemKeys -> #{const GLFW_SYSTEM_KEYS}
-    KeyRepeat -> #{const GLFW_KEY_REPEAT}
 
   fromC i = case i of
+    #{const GLFW_CURSOR_MODE}          -> CursorMode
     #{const GLFW_STICKY_KEYS}          -> StickyKeys
     #{const GLFW_STICKY_MOUSE_BUTTONS} -> StickyMouseButtons
-    #{const GLFW_SYSTEM_KEYS}          -> SystemKeys
-    #{const GLFW_KEY_REPEAT}           -> KeyRepeat
     _                                  -> makeFromCError "InputMode" i
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
 -- Keyboard
 
-keyIsPressed :: Window -> Key -> IO Bool
-keyIsPressed wd k =
+getKey :: Window -> Key -> IO KeyState
+getKey wd k =
     fromC `fmap` glfwGetKey wd (toC k)
 
 setKeyCallback :: KeyCallback -> IO ()
@@ -723,6 +745,14 @@ setCharCallback cb = do
     storeCallback charCallback ccb
 
 -- -- -- -- -- -- -- -- -- --
+
+data KeyState = Press | Release
+
+instance C KeyState CInt where
+  fromC ks = case ks of
+     #{const GLFW_PRESS} -> Press
+     #{const GLFW_RELEASE} -> Release
+     _ -> makeFromCError "Keystate" ks
 
 data Key
 -- printable keys
@@ -1098,8 +1128,8 @@ instance C Key CInt where
 
 -- Mouse
 
-mouseButtonIsPressed :: Window -> MouseButton -> IO Bool
-mouseButtonIsPressed wd mb =
+getMouseButton :: Window -> MouseButton -> IO KeyState
+getMouseButton wd mb =
     fromC `fmap` glfwGetMouseButton wd (toC mb)
 
 getCursorPosition :: Window -> IO (Int, Int)
@@ -1208,6 +1238,9 @@ joystickIsPresent :: Joystick -> IO Bool
 joystickIsPresent j =
     fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_PRESENT}
 
+getJoystickName :: Joystick -> IO String
+getJoystickName j = glfwGetJoystickName (toC j) >>= peekCString
+
 getNumJoystickAxes :: Joystick -> IO Int
 getNumJoystickAxes j =
     fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_AXES}
@@ -1216,12 +1249,12 @@ getNumJoystickButtons :: Joystick -> IO Int
 getNumJoystickButtons j =
     fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_BUTTONS}
 
-getJoystickPosition :: Joystick -> Int -> IO [Float]
-getJoystickPosition j m =
+getJoystickAxes :: Joystick -> Int -> IO [Float]
+getJoystickAxes j m =
     if m < 1
       then return []
       else allocaArray m $ \ptr -> do
-               n <- fromC `fmap` glfwGetJoystickPos (toC j) ptr (toC m)
+               n <- fromC `fmap` glfwGetJoystickAxes (toC j) ptr (toC m)
                a <- peekArray n ptr
                return $ map fromC a
 
@@ -1232,7 +1265,7 @@ joystickButtonsArePressed j m =
       else allocaArray m $ \ptr -> do
                n <- fromC `fmap` glfwGetJoystickButtons (toC j) ptr (toC m)
                a <- peekArray n ptr :: IO [CUChar]
-               return $ map ((#{const GLFW_PRESS} ==) . fromIntegral) a
+               return $ map (((#{const GLFW_PRESS} :: Int) ==) . fromIntegral) a
 
 -- -- -- -- -- -- -- -- -- --
 
@@ -1310,14 +1343,9 @@ makeContextCurrent :: Window -> IO ()
 makeContextCurrent wd =
     glfwMakeContextCurrent wd
 
-getCurrentContext :: IO Window
+getCurrentContext :: IO (Window)
 getCurrentContext =
     glfwGetCurrentContext
-
--- glfwCopyContext expects a GL_ datatype, so including it would create a dependency on OpenGL
---copyContext :: Window -> Window -> glEnum -> IO ()
---copyContext =
---    glfwCopyContext
 
 swapBuffers :: Window -> IO ()
 swapBuffers =
@@ -1339,9 +1367,9 @@ openGLContextIsDebugContext :: Window -> IO Bool
 openGLContextIsDebugContext wd =
     fromC `fmap` glfwGetWindowParam wd #{const GLFW_OPENGL_DEBUG_CONTEXT}
 
-openGLContextIsRobust :: Window -> IO OpenGLRobustness
-openGLContextIsRobust wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_OPENGL_ROBUSTNESS}
+openGLContextRobustness :: Window -> IO OpenGLRobustness
+openGLContextRobustness wd =
+    fromC `fmap` glfwGetWindowParam wd #{const GLFW_CONTEXT_ROBUSTNESS}
 
 getOpenGLProfile :: Window -> IO OpenGLProfile
 getOpenGLProfile wd =
@@ -1349,24 +1377,35 @@ getOpenGLProfile wd =
 
 -- -- -- -- -- -- -- -- --
 
+data ClientAPI
+  = OpenGL
+  | OpenGLES
+  deriving (Eq, Ord, Bounded, Enum, Read, Show)
+
+instance C ClientAPI CInt where
+  toC op = case op of
+    OpenGL   -> #{const GLFW_OPENGL_API}
+    OpenGLES -> #{const GLFW_OPENGL_ES_API}
+  fromC i = case i of
+    #{const GLFW_OPENGL_API} -> OpenGL
+    #{const GLFW_OPENGL_ES_API} -> OpenGLES
+    _ -> makeFromCError "ClientAPI" i
+
 data OpenGLProfile
-  = DefaultProfile
+  = NoProfile
   | CoreProfile
   | CompatibilityProfile
-  | ES2Profile
   deriving (Eq, Ord, Bounded, Enum, Read, Show)
 
 instance C OpenGLProfile CInt where
   toC op = case op of
-      DefaultProfile       -> #{const GLFW_OPENGL_NO_PROFILE}
+      NoProfile       -> #{const GLFW_OPENGL_NO_PROFILE}
       CoreProfile          -> #{const GLFW_OPENGL_CORE_PROFILE}
       CompatibilityProfile -> #{const GLFW_OPENGL_COMPAT_PROFILE}
-      ES2Profile           -> #{const GLFW_OPENGL_ES2_PROFILE}
   fromC i = case i of
-      #{const GLFW_OPENGL_NO_PROFILE}     -> DefaultProfile
+      #{const GLFW_OPENGL_NO_PROFILE}     -> NoProfile
       #{const GLFW_OPENGL_CORE_PROFILE}   -> CoreProfile
       #{const GLFW_OPENGL_COMPAT_PROFILE} -> CompatibilityProfile
-      #{const GLFW_OPENGL_ES2_PROFILE}    -> ES2Profile
       _                                   -> makeFromCError "OpenGLProfile" i
 
 data OpenGLRobustness
@@ -1377,14 +1416,14 @@ data OpenGLRobustness
 
 instance C OpenGLRobustness CInt where
     toC rb = case rb of
-        NoRobustness        -> #{const GLFW_OPENGL_NO_ROBUSTNESS}
-        NoResetNotification -> #{const GLFW_OPENGL_NO_RESET_NOTIFICATION}
-        LoseContextOnReset  -> #{const GLFW_OPENGL_LOSE_CONTEXT_ON_RESET}
+        NoRobustness        -> #{const GLFW_NO_ROBUSTNESS}
+        NoResetNotification -> #{const GLFW_NO_RESET_NOTIFICATION}
+        LoseContextOnReset  -> #{const GLFW_LOSE_CONTEXT_ON_RESET}
 
     fromC i = case i of
-        #{const GLFW_OPENGL_NO_ROBUSTNESS}         -> NoRobustness
-        #{const GLFW_OPENGL_NO_RESET_NOTIFICATION} -> NoResetNotification
-        #{const GLFW_OPENGL_LOSE_CONTEXT_ON_RESET} -> LoseContextOnReset
+        #{const GLFW_NO_ROBUSTNESS}         -> NoRobustness
+        #{const GLFW_NO_RESET_NOTIFICATION} -> NoResetNotification
+        #{const GLFW_LOSE_CONTEXT_ON_RESET} -> LoseContextOnReset
         _                                          -> makeFromCError "OpenGLRobustness" i
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -1443,6 +1482,9 @@ instance C Int CUShort where
 
 errorCallback :: IORef (Maybe (FunPtr GlfwErrorCallback))
 
+monitorCallback :: IORef (Maybe (FunPtr GlfwMonitorCallback))
+
+windowPositionCallback :: IORef (Maybe (FunPtr GlfwWindowPositionCallback))
 windowSizeCallback    :: IORef (Maybe (FunPtr GlfwWindowSizeCallback))
 windowCloseCallback   :: IORef (Maybe (FunPtr GlfwWindowCloseCallback))
 windowRefreshCallback :: IORef (Maybe (FunPtr GlfwWindowRefreshCallback))
@@ -1460,6 +1502,11 @@ scrollCallback        :: IORef (Maybe (FunPtr GlfwScrollCallback))
 errorCallback         = unsafePerformIO (newIORef Nothing)
 {-# NOINLINE errorCallback #-}
 
+monitorCallback = unsafePerformIO (newIORef Nothing)
+{-# NOINLINE monitorCallback #-}
+
+windowPositionCallback = unsafePerformIO (newIORef Nothing)
+{-# NOINLINE windowPositionCallback #-}
 windowSizeCallback    = unsafePerformIO (newIORef Nothing)
 {-# NOINLINE windowSizeCallback #-}
 windowCloseCallback   = unsafePerformIO (newIORef Nothing)
