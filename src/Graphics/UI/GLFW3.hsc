@@ -148,6 +148,7 @@ import Foreign.Marshal.Utils (with)
 import Foreign.Ptr           (FunPtr, Ptr, nullPtr, freeHaskellFunPtr)
 import Foreign.Storable      (Storable(..))
 import System.IO.Unsafe      (unsafePerformIO)
+import Data.Functor
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
@@ -293,7 +294,7 @@ foreign import ccall "wrapper" wrapScrollCallback         :: GlfwScrollCallback 
 
 initialize :: IO Bool
 initialize =
-    fromC `fmap` glfwInit
+    fromC <$> glfwInit
 
 terminate :: IO ()
 terminate =
@@ -416,7 +417,7 @@ getGammaRamp =
 setGammaRamp :: GammaRamp -> IO ()
 setGammaRamp gr =
     with gr (\ptr -> glfwSetGammaRamp ptr)
-              
+
 -- -- -- -- -- -- -- -- -- --
 data GammaRamp = GammaRamp
     { red   :: Int
@@ -445,7 +446,7 @@ instance Storable GammaRamp where
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Window handling
-  
+
 createWindow :: DisplayOptions -> IO (Window)
 createWindow displOpts = do
 
@@ -465,7 +466,7 @@ createWindow displOpts = do
     glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (displayOptions_accumNumAlphaBits displOpts)
     glfwWindowHint #{const GLFW_AUX_BUFFERS} $ toC (displayOptions_numAuxiliaryBuffers displOpts)
     glfwWindowHint #{const GLFW_SAMPLES} $ toC (displayOptions_numFsaaSamples displOpts)
-                     
+
     glfwWindowHint #{const GLFW_RESIZABLE} $ toC (displayOptions_resizable displOpts)
     glfwWindowHint #{const GLFW_VISIBLE} $ toC (displayOptions_visible displOpts)
     glfwWindowHint #{const GLFW_STEREO} $ toC (displayOptions_stereoRendering displOpts)
@@ -478,7 +479,7 @@ createWindow displOpts = do
     glfwWindowHint #{const GLFW_OPENGL_PROFILE} $ toC (displayOptions_openGLProfile displOpts)
 
     -- Open the window.
-    withCString (displayOptions_title displOpts) (\title -> glfwCreateWindow 
+    withCString (displayOptions_title displOpts) (\title -> glfwCreateWindow
         (toC $ displayOptions_width displOpts)
         (toC $ displayOptions_height displOpts)
         title
@@ -552,7 +553,7 @@ setWindowPositionCallback cb = do
     ccb <- wrapWindowPositionCallback (\wd x y -> cb wd (fromC x) (fromC y))
     glfwSetWindowPosCallback ccb
     storeCallback windowPositionCallback ccb
-    
+
 setWindowSizeCallback :: WindowSizeCallback -> IO ()
 setWindowSizeCallback cb = do
     ccb <- wrapWindowSizeCallback (\wd w h -> cb wd (fromC w) (fromC h))
@@ -697,7 +698,7 @@ waitEvents =
 -- Input handling
 
 getInputMode :: Window -> InputMode -> IO Bool
-getInputMode wd im = do 
+getInputMode wd im = do
     m <- glfwGetInputMode wd (toC im)
     return $ fromC m
 
@@ -707,7 +708,7 @@ setInputMode wd im b =
 
 -- -- -- -- -- -- -- -- -- --
 
-data InputMode 
+data InputMode
   = CursorMode
   | StickyKeys
   | StickyMouseButtons
@@ -725,7 +726,7 @@ instance C InputMode CInt where
     #{const GLFW_STICKY_MOUSE_BUTTONS} -> StickyMouseButtons
     _                                  -> makeFromCError "InputMode" i
 
--- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- 
+-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Keyboard
 
 getKey :: Window -> Key -> IO KeyState
@@ -881,249 +882,249 @@ data Key
 
 instance C Key CInt where
   toC k = case k of
-      KeySpace              -> #{const GLFW_KEY_SPACE}                
-      KeyApostrophe         -> #{const GLFW_KEY_APOSTROPHE}           
-      KeyComma              -> #{const GLFW_KEY_COMMA}                
-      KeyMinus              -> #{const GLFW_KEY_MINUS}                
-      KeyPeriod             -> #{const GLFW_KEY_PERIOD}               
-      KeySlash              -> #{const GLFW_KEY_SLASH}                
-      Key0                  -> #{const GLFW_KEY_0}                    
-      Key1                  -> #{const GLFW_KEY_1}                    
-      Key2                  -> #{const GLFW_KEY_2}                   
-      Key3                  -> #{const GLFW_KEY_3}                   
-      Key4                  -> #{const GLFW_KEY_4}                   
-      Key5                  -> #{const GLFW_KEY_5}                   
-      Key6                  -> #{const GLFW_KEY_6}                   
-      Key7                  -> #{const GLFW_KEY_7}                   
-      Key8                  -> #{const GLFW_KEY_8}                   
-      Key9                  -> #{const GLFW_KEY_9}                   
-      KeySemicolon          -> #{const GLFW_KEY_SEMICOLON}           
-      KeyEqual              -> #{const GLFW_KEY_EQUAL}               
-      KeyA                  -> #{const GLFW_KEY_A}                   
-      KeyB                  -> #{const GLFW_KEY_B}                   
-      KeyC                  -> #{const GLFW_KEY_C}                   
-      KeyD                  -> #{const GLFW_KEY_D}                   
-      KeyE                  -> #{const GLFW_KEY_E}                   
-      KeyF                  -> #{const GLFW_KEY_F}                   
-      KeyG                  -> #{const GLFW_KEY_G}                   
-      KeyH                  -> #{const GLFW_KEY_H}                   
-      KeyI                  -> #{const GLFW_KEY_I}                   
-      KeyJ                  -> #{const GLFW_KEY_J}                   
-      KeyK                  -> #{const GLFW_KEY_K}                   
-      KeyL                  -> #{const GLFW_KEY_L}                   
-      KeyM                  -> #{const GLFW_KEY_M}                   
-      KeyN                  -> #{const GLFW_KEY_N}                   
-      KeyO                  -> #{const GLFW_KEY_O}                   
-      KeyP                  -> #{const GLFW_KEY_P}                   
-      KeyQ                  -> #{const GLFW_KEY_Q}                   
-      KeyR                  -> #{const GLFW_KEY_R}                   
-      KeyS                  -> #{const GLFW_KEY_S}                   
-      KeyT                  -> #{const GLFW_KEY_T}                   
-      KeyU                  -> #{const GLFW_KEY_U}                   
-      KeyV                  -> #{const GLFW_KEY_V}                   
-      KeyW                  -> #{const GLFW_KEY_W}                   
-      KeyX                  -> #{const GLFW_KEY_X}                   
-      KeyY                  -> #{const GLFW_KEY_Y}                   
-      KeyZ                  -> #{const GLFW_KEY_Z}                   
-      KeyLeftBracket        -> #{const GLFW_KEY_LEFT_BRACKET}         
-      KeyBackslash          -> #{const GLFW_KEY_BACKSLASH}           
-      KeyRightBracket       -> #{const GLFW_KEY_RIGHT_BRACKET}       
-      KeyGraveAccent        -> #{const GLFW_KEY_GRAVE_ACCENT}        
-      KeyWorld1             -> #{const GLFW_KEY_WORLD_1}             
-      KeyWorld2             -> #{const GLFW_KEY_WORLD_2}             
-      KeyEscape             -> #{const GLFW_KEY_ESCAPE}                    
-      KeyEnter              -> #{const GLFW_KEY_ENTER}               
-      KeyTab                -> #{const GLFW_KEY_TAB}                 
-      KeyBackspace          -> #{const GLFW_KEY_BACKSPACE}           
-      KeyInsert             -> #{const GLFW_KEY_INSERT}              
-      KeyDelete             -> #{const GLFW_KEY_DELETE}              
-      KeyRight              -> #{const GLFW_KEY_RIGHT}               
-      KeyLeft               -> #{const GLFW_KEY_LEFT}                
-      KeyDown               -> #{const GLFW_KEY_DOWN}                
-      KeyUp                 -> #{const GLFW_KEY_UP}                  
-      KeyPageUp             -> #{const GLFW_KEY_PAGE_UP}             
-      KeyPageDown           -> #{const GLFW_KEY_PAGE_DOWN}           
-      KeyHome               -> #{const GLFW_KEY_HOME}                
-      KeyEnd                -> #{const GLFW_KEY_END}                 
-      KeyCapsLock           -> #{const GLFW_KEY_CAPS_LOCK}            
-      KeyScrollLock         -> #{const GLFW_KEY_SCROLL_LOCK}         
-      KeyNumLock            -> #{const GLFW_KEY_NUM_LOCK}            
-      KeyPrintScreen        -> #{const GLFW_KEY_PRINT_SCREEN}        
-      KeyPause              -> #{const GLFW_KEY_PAUSE}               
-      KeyF1                 -> #{const GLFW_KEY_F1}                  
-      KeyF2                 -> #{const GLFW_KEY_F2}                  
-      KeyF3                 -> #{const GLFW_KEY_F3}                  
-      KeyF4                 -> #{const GLFW_KEY_F4}                  
-      KeyF5                 -> #{const GLFW_KEY_F5}                  
-      KeyF6                 -> #{const GLFW_KEY_F6}                  
-      KeyF7                 -> #{const GLFW_KEY_F7}                  
-      KeyF8                 -> #{const GLFW_KEY_F8}                  
-      KeyF9                 -> #{const GLFW_KEY_F9}                  
-      KeyF10                -> #{const GLFW_KEY_F10}                 
-      KeyF11                -> #{const GLFW_KEY_F11}                 
-      KeyF12                -> #{const GLFW_KEY_F12}                 
-      KeyF13                -> #{const GLFW_KEY_F13}                 
-      KeyF14                -> #{const GLFW_KEY_F14}                 
-      KeyF15                -> #{const GLFW_KEY_F15}                 
-      KeyF16                -> #{const GLFW_KEY_F16}                 
-      KeyF17                -> #{const GLFW_KEY_F17}                 
-      KeyF18                -> #{const GLFW_KEY_F18}                 
-      KeyF19                -> #{const GLFW_KEY_F19}                 
-      KeyF20                -> #{const GLFW_KEY_F20}                 
-      KeyF21                -> #{const GLFW_KEY_F21}                 
-      KeyF22                -> #{const GLFW_KEY_F22}                 
-      KeyF23                -> #{const GLFW_KEY_F23}                 
-      KeyF24                -> #{const GLFW_KEY_F24}                 
-      KeyF25                -> #{const GLFW_KEY_F25}                 
-      KeyKeypad0            -> #{const GLFW_KEY_KP_0}                
-      KeyKeypad1            -> #{const GLFW_KEY_KP_1}                
-      KeyKeypad2            -> #{const GLFW_KEY_KP_2}                
-      KeyKeypad3            -> #{const GLFW_KEY_KP_3}                
-      KeyKeypad4            -> #{const GLFW_KEY_KP_4}                
-      KeyKeypad5            -> #{const GLFW_KEY_KP_5}                
-      KeyKeypad6            -> #{const GLFW_KEY_KP_6}                
-      KeyKeypad7            -> #{const GLFW_KEY_KP_7}                
-      KeyKeypad8            -> #{const GLFW_KEY_KP_8}                
-      KeyKeypad9            -> #{const GLFW_KEY_KP_9}                
-      KeyKeypadDecimal      -> #{const GLFW_KEY_KP_DECIMAL}           
-      KeyKeypadDivide       -> #{const GLFW_KEY_KP_DIVIDE}            
-      KeyKeypadMultiply     -> #{const GLFW_KEY_KP_MULTIPLY}         
-      KeyKeypadSubtract     -> #{const GLFW_KEY_KP_SUBTRACT}         
-      KeyKeypadAdd          -> #{const GLFW_KEY_KP_ADD}              
-      KeyKeypadEnter        -> #{const GLFW_KEY_KP_ENTER}            
-      KeyKeypadEqual        -> #{const GLFW_KEY_KP_EQUAL}            
-      KeyLeftShift          -> #{const GLFW_KEY_LEFT_SHIFT}          
-      KeyLeftControl        -> #{const GLFW_KEY_LEFT_CONTROL}        
-      KeyLeftAlt            -> #{const GLFW_KEY_LEFT_ALT}            
-      KeyLeftSuper          -> #{const GLFW_KEY_LEFT_SUPER}          
-      KeyRightShift         -> #{const GLFW_KEY_RIGHT_SHIFT}         
-      KeyRightControl       -> #{const GLFW_KEY_RIGHT_CONTROL}       
-      KeyRightAlt           -> #{const GLFW_KEY_RIGHT_ALT}           
-      KeyRightSuper         -> #{const GLFW_KEY_RIGHT_SUPER}         
+      KeySpace              -> #{const GLFW_KEY_SPACE}
+      KeyApostrophe         -> #{const GLFW_KEY_APOSTROPHE}
+      KeyComma              -> #{const GLFW_KEY_COMMA}
+      KeyMinus              -> #{const GLFW_KEY_MINUS}
+      KeyPeriod             -> #{const GLFW_KEY_PERIOD}
+      KeySlash              -> #{const GLFW_KEY_SLASH}
+      Key0                  -> #{const GLFW_KEY_0}
+      Key1                  -> #{const GLFW_KEY_1}
+      Key2                  -> #{const GLFW_KEY_2}
+      Key3                  -> #{const GLFW_KEY_3}
+      Key4                  -> #{const GLFW_KEY_4}
+      Key5                  -> #{const GLFW_KEY_5}
+      Key6                  -> #{const GLFW_KEY_6}
+      Key7                  -> #{const GLFW_KEY_7}
+      Key8                  -> #{const GLFW_KEY_8}
+      Key9                  -> #{const GLFW_KEY_9}
+      KeySemicolon          -> #{const GLFW_KEY_SEMICOLON}
+      KeyEqual              -> #{const GLFW_KEY_EQUAL}
+      KeyA                  -> #{const GLFW_KEY_A}
+      KeyB                  -> #{const GLFW_KEY_B}
+      KeyC                  -> #{const GLFW_KEY_C}
+      KeyD                  -> #{const GLFW_KEY_D}
+      KeyE                  -> #{const GLFW_KEY_E}
+      KeyF                  -> #{const GLFW_KEY_F}
+      KeyG                  -> #{const GLFW_KEY_G}
+      KeyH                  -> #{const GLFW_KEY_H}
+      KeyI                  -> #{const GLFW_KEY_I}
+      KeyJ                  -> #{const GLFW_KEY_J}
+      KeyK                  -> #{const GLFW_KEY_K}
+      KeyL                  -> #{const GLFW_KEY_L}
+      KeyM                  -> #{const GLFW_KEY_M}
+      KeyN                  -> #{const GLFW_KEY_N}
+      KeyO                  -> #{const GLFW_KEY_O}
+      KeyP                  -> #{const GLFW_KEY_P}
+      KeyQ                  -> #{const GLFW_KEY_Q}
+      KeyR                  -> #{const GLFW_KEY_R}
+      KeyS                  -> #{const GLFW_KEY_S}
+      KeyT                  -> #{const GLFW_KEY_T}
+      KeyU                  -> #{const GLFW_KEY_U}
+      KeyV                  -> #{const GLFW_KEY_V}
+      KeyW                  -> #{const GLFW_KEY_W}
+      KeyX                  -> #{const GLFW_KEY_X}
+      KeyY                  -> #{const GLFW_KEY_Y}
+      KeyZ                  -> #{const GLFW_KEY_Z}
+      KeyLeftBracket        -> #{const GLFW_KEY_LEFT_BRACKET}
+      KeyBackslash          -> #{const GLFW_KEY_BACKSLASH}
+      KeyRightBracket       -> #{const GLFW_KEY_RIGHT_BRACKET}
+      KeyGraveAccent        -> #{const GLFW_KEY_GRAVE_ACCENT}
+      KeyWorld1             -> #{const GLFW_KEY_WORLD_1}
+      KeyWorld2             -> #{const GLFW_KEY_WORLD_2}
+      KeyEscape             -> #{const GLFW_KEY_ESCAPE}
+      KeyEnter              -> #{const GLFW_KEY_ENTER}
+      KeyTab                -> #{const GLFW_KEY_TAB}
+      KeyBackspace          -> #{const GLFW_KEY_BACKSPACE}
+      KeyInsert             -> #{const GLFW_KEY_INSERT}
+      KeyDelete             -> #{const GLFW_KEY_DELETE}
+      KeyRight              -> #{const GLFW_KEY_RIGHT}
+      KeyLeft               -> #{const GLFW_KEY_LEFT}
+      KeyDown               -> #{const GLFW_KEY_DOWN}
+      KeyUp                 -> #{const GLFW_KEY_UP}
+      KeyPageUp             -> #{const GLFW_KEY_PAGE_UP}
+      KeyPageDown           -> #{const GLFW_KEY_PAGE_DOWN}
+      KeyHome               -> #{const GLFW_KEY_HOME}
+      KeyEnd                -> #{const GLFW_KEY_END}
+      KeyCapsLock           -> #{const GLFW_KEY_CAPS_LOCK}
+      KeyScrollLock         -> #{const GLFW_KEY_SCROLL_LOCK}
+      KeyNumLock            -> #{const GLFW_KEY_NUM_LOCK}
+      KeyPrintScreen        -> #{const GLFW_KEY_PRINT_SCREEN}
+      KeyPause              -> #{const GLFW_KEY_PAUSE}
+      KeyF1                 -> #{const GLFW_KEY_F1}
+      KeyF2                 -> #{const GLFW_KEY_F2}
+      KeyF3                 -> #{const GLFW_KEY_F3}
+      KeyF4                 -> #{const GLFW_KEY_F4}
+      KeyF5                 -> #{const GLFW_KEY_F5}
+      KeyF6                 -> #{const GLFW_KEY_F6}
+      KeyF7                 -> #{const GLFW_KEY_F7}
+      KeyF8                 -> #{const GLFW_KEY_F8}
+      KeyF9                 -> #{const GLFW_KEY_F9}
+      KeyF10                -> #{const GLFW_KEY_F10}
+      KeyF11                -> #{const GLFW_KEY_F11}
+      KeyF12                -> #{const GLFW_KEY_F12}
+      KeyF13                -> #{const GLFW_KEY_F13}
+      KeyF14                -> #{const GLFW_KEY_F14}
+      KeyF15                -> #{const GLFW_KEY_F15}
+      KeyF16                -> #{const GLFW_KEY_F16}
+      KeyF17                -> #{const GLFW_KEY_F17}
+      KeyF18                -> #{const GLFW_KEY_F18}
+      KeyF19                -> #{const GLFW_KEY_F19}
+      KeyF20                -> #{const GLFW_KEY_F20}
+      KeyF21                -> #{const GLFW_KEY_F21}
+      KeyF22                -> #{const GLFW_KEY_F22}
+      KeyF23                -> #{const GLFW_KEY_F23}
+      KeyF24                -> #{const GLFW_KEY_F24}
+      KeyF25                -> #{const GLFW_KEY_F25}
+      KeyKeypad0            -> #{const GLFW_KEY_KP_0}
+      KeyKeypad1            -> #{const GLFW_KEY_KP_1}
+      KeyKeypad2            -> #{const GLFW_KEY_KP_2}
+      KeyKeypad3            -> #{const GLFW_KEY_KP_3}
+      KeyKeypad4            -> #{const GLFW_KEY_KP_4}
+      KeyKeypad5            -> #{const GLFW_KEY_KP_5}
+      KeyKeypad6            -> #{const GLFW_KEY_KP_6}
+      KeyKeypad7            -> #{const GLFW_KEY_KP_7}
+      KeyKeypad8            -> #{const GLFW_KEY_KP_8}
+      KeyKeypad9            -> #{const GLFW_KEY_KP_9}
+      KeyKeypadDecimal      -> #{const GLFW_KEY_KP_DECIMAL}
+      KeyKeypadDivide       -> #{const GLFW_KEY_KP_DIVIDE}
+      KeyKeypadMultiply     -> #{const GLFW_KEY_KP_MULTIPLY}
+      KeyKeypadSubtract     -> #{const GLFW_KEY_KP_SUBTRACT}
+      KeyKeypadAdd          -> #{const GLFW_KEY_KP_ADD}
+      KeyKeypadEnter        -> #{const GLFW_KEY_KP_ENTER}
+      KeyKeypadEqual        -> #{const GLFW_KEY_KP_EQUAL}
+      KeyLeftShift          -> #{const GLFW_KEY_LEFT_SHIFT}
+      KeyLeftControl        -> #{const GLFW_KEY_LEFT_CONTROL}
+      KeyLeftAlt            -> #{const GLFW_KEY_LEFT_ALT}
+      KeyLeftSuper          -> #{const GLFW_KEY_LEFT_SUPER}
+      KeyRightShift         -> #{const GLFW_KEY_RIGHT_SHIFT}
+      KeyRightControl       -> #{const GLFW_KEY_RIGHT_CONTROL}
+      KeyRightAlt           -> #{const GLFW_KEY_RIGHT_ALT}
+      KeyRightSuper         -> #{const GLFW_KEY_RIGHT_SUPER}
       KeyMenu               -> #{const GLFW_KEY_MENU}
-                                       
+
   fromC i =
       case i of
-        #{const GLFW_KEY_SPACE        } -> KeySpace              
-        #{const GLFW_KEY_APOSTROPHE   } -> KeyApostrophe         
-        #{const GLFW_KEY_COMMA        } -> KeyComma              
-        #{const GLFW_KEY_MINUS        } -> KeyMinus              
-        #{const GLFW_KEY_PERIOD       } -> KeyPeriod             
-        #{const GLFW_KEY_SLASH        } -> KeySlash              
-        #{const GLFW_KEY_0            } -> Key0                  
-        #{const GLFW_KEY_1            } -> Key1                  
-        #{const GLFW_KEY_2            } -> Key2                  
-        #{const GLFW_KEY_3            } -> Key3                  
-        #{const GLFW_KEY_4            } -> Key4                  
-        #{const GLFW_KEY_5            } -> Key5                  
-        #{const GLFW_KEY_6            } -> Key6                  
-        #{const GLFW_KEY_7            } -> Key7                  
-        #{const GLFW_KEY_8            } -> Key8                  
-        #{const GLFW_KEY_9            } -> Key9                  
-        #{const GLFW_KEY_SEMICOLON    } -> KeySemicolon          
-        #{const GLFW_KEY_EQUAL        } -> KeyEqual              
-        #{const GLFW_KEY_A            } -> KeyA                  
-        #{const GLFW_KEY_B            } -> KeyB                  
-        #{const GLFW_KEY_C            } -> KeyC                  
-        #{const GLFW_KEY_D            } -> KeyD                  
-        #{const GLFW_KEY_E            } -> KeyE                  
-        #{const GLFW_KEY_F            } -> KeyF                  
-        #{const GLFW_KEY_G            } -> KeyG                  
-        #{const GLFW_KEY_H            } -> KeyH                  
-        #{const GLFW_KEY_I            } -> KeyI                  
-        #{const GLFW_KEY_J            } -> KeyJ                  
-        #{const GLFW_KEY_K            } -> KeyK                  
-        #{const GLFW_KEY_L            } -> KeyL                  
-        #{const GLFW_KEY_M            } -> KeyM                  
-        #{const GLFW_KEY_N            } -> KeyN                  
-        #{const GLFW_KEY_O            } -> KeyO                  
-        #{const GLFW_KEY_P            } -> KeyP                  
-        #{const GLFW_KEY_Q            } -> KeyQ                  
-        #{const GLFW_KEY_R            } -> KeyR                  
-        #{const GLFW_KEY_S            } -> KeyS                  
-        #{const GLFW_KEY_T            } -> KeyT                  
-        #{const GLFW_KEY_U            } -> KeyU                  
-        #{const GLFW_KEY_V            } -> KeyV                  
-        #{const GLFW_KEY_W            } -> KeyW                  
-        #{const GLFW_KEY_X            } -> KeyX                  
-        #{const GLFW_KEY_Y            } -> KeyY                  
-        #{const GLFW_KEY_Z            } -> KeyZ                  
-        #{const GLFW_KEY_LEFT_BRACKET } -> KeyLeftBracket        
-        #{const GLFW_KEY_BACKSLASH    } -> KeyBackslash          
-        #{const GLFW_KEY_RIGHT_BRACKET} -> KeyRightBracket       
-        #{const GLFW_KEY_GRAVE_ACCENT } -> KeyGraveAccent        
-        #{const GLFW_KEY_WORLD_1      } -> KeyWorld1             
-        #{const GLFW_KEY_WORLD_2      } -> KeyWorld2             
-        #{const GLFW_KEY_ESCAPE       } -> KeyEscape                   
-        #{const GLFW_KEY_ENTER        } -> KeyEnter              
-        #{const GLFW_KEY_TAB          } -> KeyTab                
-        #{const GLFW_KEY_BACKSPACE    } -> KeyBackspace          
-        #{const GLFW_KEY_INSERT       } -> KeyInsert             
-        #{const GLFW_KEY_DELETE       } -> KeyDelete             
-        #{const GLFW_KEY_RIGHT        } -> KeyRight              
-        #{const GLFW_KEY_LEFT         } -> KeyLeft               
-        #{const GLFW_KEY_DOWN         } -> KeyDown               
-        #{const GLFW_KEY_UP           } -> KeyUp                 
-        #{const GLFW_KEY_PAGE_UP      } -> KeyPageUp             
-        #{const GLFW_KEY_PAGE_DOWN    } -> KeyPageDown           
-        #{const GLFW_KEY_HOME         } -> KeyHome               
-        #{const GLFW_KEY_END          } -> KeyEnd                
-        #{const GLFW_KEY_CAPS_LOCK    } -> KeyCapsLock           
-        #{const GLFW_KEY_SCROLL_LOCK  } -> KeyScrollLock         
-        #{const GLFW_KEY_NUM_LOCK     } -> KeyNumLock            
-        #{const GLFW_KEY_PRINT_SCREEN } -> KeyPrintScreen        
-        #{const GLFW_KEY_PAUSE        } -> KeyPause              
-        #{const GLFW_KEY_F1           } -> KeyF1                 
-        #{const GLFW_KEY_F2           } -> KeyF2                 
-        #{const GLFW_KEY_F3           } -> KeyF3                 
-        #{const GLFW_KEY_F4           } -> KeyF4                 
-        #{const GLFW_KEY_F5           } -> KeyF5                 
-        #{const GLFW_KEY_F6           } -> KeyF6                 
-        #{const GLFW_KEY_F7           } -> KeyF7                 
-        #{const GLFW_KEY_F8           } -> KeyF8                 
-        #{const GLFW_KEY_F9           } -> KeyF9                 
-        #{const GLFW_KEY_F10          } -> KeyF10                
-        #{const GLFW_KEY_F11          } -> KeyF11                
-        #{const GLFW_KEY_F12          } -> KeyF12                
-        #{const GLFW_KEY_F13          } -> KeyF13                
-        #{const GLFW_KEY_F14          } -> KeyF14                
-        #{const GLFW_KEY_F15          } -> KeyF15                
-        #{const GLFW_KEY_F16          } -> KeyF16                
-        #{const GLFW_KEY_F17          } -> KeyF17                
-        #{const GLFW_KEY_F18          } -> KeyF18                
-        #{const GLFW_KEY_F19          } -> KeyF19                
-        #{const GLFW_KEY_F20          } -> KeyF20                
-        #{const GLFW_KEY_F21          } -> KeyF21                
-        #{const GLFW_KEY_F22          } -> KeyF22                
-        #{const GLFW_KEY_F23          } -> KeyF23                
-        #{const GLFW_KEY_F24          } -> KeyF24                
-        #{const GLFW_KEY_F25          } -> KeyF25                
-        #{const GLFW_KEY_KP_0         } -> KeyKeypad0            
-        #{const GLFW_KEY_KP_1         } -> KeyKeypad1            
-        #{const GLFW_KEY_KP_2         } -> KeyKeypad2            
-        #{const GLFW_KEY_KP_3         } -> KeyKeypad3            
-        #{const GLFW_KEY_KP_4         } -> KeyKeypad4            
-        #{const GLFW_KEY_KP_5         } -> KeyKeypad5            
-        #{const GLFW_KEY_KP_6         } -> KeyKeypad6            
-        #{const GLFW_KEY_KP_7         } -> KeyKeypad7            
-        #{const GLFW_KEY_KP_8         } -> KeyKeypad8            
-        #{const GLFW_KEY_KP_9         } -> KeyKeypad9            
-        #{const GLFW_KEY_KP_DECIMAL   } -> KeyKeypadDecimal      
-        #{const GLFW_KEY_KP_DIVIDE    } -> KeyKeypadDivide       
-        #{const GLFW_KEY_KP_MULTIPLY  } -> KeyKeypadMultiply     
-        #{const GLFW_KEY_KP_SUBTRACT  } -> KeyKeypadSubtract     
-        #{const GLFW_KEY_KP_ADD       } -> KeyKeypadAdd          
-        #{const GLFW_KEY_KP_ENTER     } -> KeyKeypadEnter        
-        #{const GLFW_KEY_KP_EQUAL     } -> KeyKeypadEqual        
-        #{const GLFW_KEY_LEFT_SHIFT   } -> KeyLeftShift          
-        #{const GLFW_KEY_LEFT_CONTROL } -> KeyLeftControl        
-        #{const GLFW_KEY_LEFT_ALT     } -> KeyLeftAlt            
-        #{const GLFW_KEY_LEFT_SUPER   } -> KeyLeftSuper          
-        #{const GLFW_KEY_RIGHT_SHIFT  } -> KeyRightShift         
-        #{const GLFW_KEY_RIGHT_CONTROL} -> KeyRightControl       
-        #{const GLFW_KEY_RIGHT_ALT    } -> KeyRightAlt           
-        #{const GLFW_KEY_RIGHT_SUPER  } -> KeyRightSuper         
-        #{const GLFW_KEY_MENU         } -> KeyMenu               
+        #{const GLFW_KEY_SPACE        } -> KeySpace
+        #{const GLFW_KEY_APOSTROPHE   } -> KeyApostrophe
+        #{const GLFW_KEY_COMMA        } -> KeyComma
+        #{const GLFW_KEY_MINUS        } -> KeyMinus
+        #{const GLFW_KEY_PERIOD       } -> KeyPeriod
+        #{const GLFW_KEY_SLASH        } -> KeySlash
+        #{const GLFW_KEY_0            } -> Key0
+        #{const GLFW_KEY_1            } -> Key1
+        #{const GLFW_KEY_2            } -> Key2
+        #{const GLFW_KEY_3            } -> Key3
+        #{const GLFW_KEY_4            } -> Key4
+        #{const GLFW_KEY_5            } -> Key5
+        #{const GLFW_KEY_6            } -> Key6
+        #{const GLFW_KEY_7            } -> Key7
+        #{const GLFW_KEY_8            } -> Key8
+        #{const GLFW_KEY_9            } -> Key9
+        #{const GLFW_KEY_SEMICOLON    } -> KeySemicolon
+        #{const GLFW_KEY_EQUAL        } -> KeyEqual
+        #{const GLFW_KEY_A            } -> KeyA
+        #{const GLFW_KEY_B            } -> KeyB
+        #{const GLFW_KEY_C            } -> KeyC
+        #{const GLFW_KEY_D            } -> KeyD
+        #{const GLFW_KEY_E            } -> KeyE
+        #{const GLFW_KEY_F            } -> KeyF
+        #{const GLFW_KEY_G            } -> KeyG
+        #{const GLFW_KEY_H            } -> KeyH
+        #{const GLFW_KEY_I            } -> KeyI
+        #{const GLFW_KEY_J            } -> KeyJ
+        #{const GLFW_KEY_K            } -> KeyK
+        #{const GLFW_KEY_L            } -> KeyL
+        #{const GLFW_KEY_M            } -> KeyM
+        #{const GLFW_KEY_N            } -> KeyN
+        #{const GLFW_KEY_O            } -> KeyO
+        #{const GLFW_KEY_P            } -> KeyP
+        #{const GLFW_KEY_Q            } -> KeyQ
+        #{const GLFW_KEY_R            } -> KeyR
+        #{const GLFW_KEY_S            } -> KeyS
+        #{const GLFW_KEY_T            } -> KeyT
+        #{const GLFW_KEY_U            } -> KeyU
+        #{const GLFW_KEY_V            } -> KeyV
+        #{const GLFW_KEY_W            } -> KeyW
+        #{const GLFW_KEY_X            } -> KeyX
+        #{const GLFW_KEY_Y            } -> KeyY
+        #{const GLFW_KEY_Z            } -> KeyZ
+        #{const GLFW_KEY_LEFT_BRACKET } -> KeyLeftBracket
+        #{const GLFW_KEY_BACKSLASH    } -> KeyBackslash
+        #{const GLFW_KEY_RIGHT_BRACKET} -> KeyRightBracket
+        #{const GLFW_KEY_GRAVE_ACCENT } -> KeyGraveAccent
+        #{const GLFW_KEY_WORLD_1      } -> KeyWorld1
+        #{const GLFW_KEY_WORLD_2      } -> KeyWorld2
+        #{const GLFW_KEY_ESCAPE       } -> KeyEscape
+        #{const GLFW_KEY_ENTER        } -> KeyEnter
+        #{const GLFW_KEY_TAB          } -> KeyTab
+        #{const GLFW_KEY_BACKSPACE    } -> KeyBackspace
+        #{const GLFW_KEY_INSERT       } -> KeyInsert
+        #{const GLFW_KEY_DELETE       } -> KeyDelete
+        #{const GLFW_KEY_RIGHT        } -> KeyRight
+        #{const GLFW_KEY_LEFT         } -> KeyLeft
+        #{const GLFW_KEY_DOWN         } -> KeyDown
+        #{const GLFW_KEY_UP           } -> KeyUp
+        #{const GLFW_KEY_PAGE_UP      } -> KeyPageUp
+        #{const GLFW_KEY_PAGE_DOWN    } -> KeyPageDown
+        #{const GLFW_KEY_HOME         } -> KeyHome
+        #{const GLFW_KEY_END          } -> KeyEnd
+        #{const GLFW_KEY_CAPS_LOCK    } -> KeyCapsLock
+        #{const GLFW_KEY_SCROLL_LOCK  } -> KeyScrollLock
+        #{const GLFW_KEY_NUM_LOCK     } -> KeyNumLock
+        #{const GLFW_KEY_PRINT_SCREEN } -> KeyPrintScreen
+        #{const GLFW_KEY_PAUSE        } -> KeyPause
+        #{const GLFW_KEY_F1           } -> KeyF1
+        #{const GLFW_KEY_F2           } -> KeyF2
+        #{const GLFW_KEY_F3           } -> KeyF3
+        #{const GLFW_KEY_F4           } -> KeyF4
+        #{const GLFW_KEY_F5           } -> KeyF5
+        #{const GLFW_KEY_F6           } -> KeyF6
+        #{const GLFW_KEY_F7           } -> KeyF7
+        #{const GLFW_KEY_F8           } -> KeyF8
+        #{const GLFW_KEY_F9           } -> KeyF9
+        #{const GLFW_KEY_F10          } -> KeyF10
+        #{const GLFW_KEY_F11          } -> KeyF11
+        #{const GLFW_KEY_F12          } -> KeyF12
+        #{const GLFW_KEY_F13          } -> KeyF13
+        #{const GLFW_KEY_F14          } -> KeyF14
+        #{const GLFW_KEY_F15          } -> KeyF15
+        #{const GLFW_KEY_F16          } -> KeyF16
+        #{const GLFW_KEY_F17          } -> KeyF17
+        #{const GLFW_KEY_F18          } -> KeyF18
+        #{const GLFW_KEY_F19          } -> KeyF19
+        #{const GLFW_KEY_F20          } -> KeyF20
+        #{const GLFW_KEY_F21          } -> KeyF21
+        #{const GLFW_KEY_F22          } -> KeyF22
+        #{const GLFW_KEY_F23          } -> KeyF23
+        #{const GLFW_KEY_F24          } -> KeyF24
+        #{const GLFW_KEY_F25          } -> KeyF25
+        #{const GLFW_KEY_KP_0         } -> KeyKeypad0
+        #{const GLFW_KEY_KP_1         } -> KeyKeypad1
+        #{const GLFW_KEY_KP_2         } -> KeyKeypad2
+        #{const GLFW_KEY_KP_3         } -> KeyKeypad3
+        #{const GLFW_KEY_KP_4         } -> KeyKeypad4
+        #{const GLFW_KEY_KP_5         } -> KeyKeypad5
+        #{const GLFW_KEY_KP_6         } -> KeyKeypad6
+        #{const GLFW_KEY_KP_7         } -> KeyKeypad7
+        #{const GLFW_KEY_KP_8         } -> KeyKeypad8
+        #{const GLFW_KEY_KP_9         } -> KeyKeypad9
+        #{const GLFW_KEY_KP_DECIMAL   } -> KeyKeypadDecimal
+        #{const GLFW_KEY_KP_DIVIDE    } -> KeyKeypadDivide
+        #{const GLFW_KEY_KP_MULTIPLY  } -> KeyKeypadMultiply
+        #{const GLFW_KEY_KP_SUBTRACT  } -> KeyKeypadSubtract
+        #{const GLFW_KEY_KP_ADD       } -> KeyKeypadAdd
+        #{const GLFW_KEY_KP_ENTER     } -> KeyKeypadEnter
+        #{const GLFW_KEY_KP_EQUAL     } -> KeyKeypadEqual
+        #{const GLFW_KEY_LEFT_SHIFT   } -> KeyLeftShift
+        #{const GLFW_KEY_LEFT_CONTROL } -> KeyLeftControl
+        #{const GLFW_KEY_LEFT_ALT     } -> KeyLeftAlt
+        #{const GLFW_KEY_LEFT_SUPER   } -> KeyLeftSuper
+        #{const GLFW_KEY_RIGHT_SHIFT  } -> KeyRightShift
+        #{const GLFW_KEY_RIGHT_CONTROL} -> KeyRightControl
+        #{const GLFW_KEY_RIGHT_ALT    } -> KeyRightAlt
+        #{const GLFW_KEY_RIGHT_SUPER  } -> KeyRightSuper
+        #{const GLFW_KEY_MENU         } -> KeyMenu
         _                               -> makeFromCError "Key" i
 
 -- Mouse
