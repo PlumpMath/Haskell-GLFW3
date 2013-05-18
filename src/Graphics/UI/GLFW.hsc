@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses    #-}
 {-# LANGUAGE EmptyDataDecls #-}
 
-module Graphics.UI.GLFW3
+module Graphics.UI.GLFW
   ( -- *   Initialization, termination and version querying
     initialize
   , terminate

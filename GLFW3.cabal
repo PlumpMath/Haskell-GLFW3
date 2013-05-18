@@ -22,7 +22,7 @@ extra-source-files:
 
 library
   exposed-modules:
-    Graphics.UI.GLFW3
+    Graphics.UI.GLFW
 
   build-depends:
     base == 4.*
