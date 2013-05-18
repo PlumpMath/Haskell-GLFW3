@@ -88,7 +88,6 @@ module Graphics.UI.GLFW3
   , getMouseButton
   , getCursorPosition
   , setCursorPosition
-  , getScrollOffset
   , setCursorMode
   , getCursorMode
   , setMouseButtonCallback
@@ -205,7 +204,6 @@ foreign import ccall glfwGetKey                   :: Window -> CInt -> IO CInt
 foreign import ccall glfwGetMouseButton           :: Window -> CInt -> IO CInt
 foreign import ccall glfwGetCursorPos             :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwSetCursorPos             :: Window -> CInt -> CInt -> IO ()
-foreign import ccall glfwGetScrollOffset          :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 foreign import ccall glfwSetKeyCallback           :: FunPtr GlfwKeyCallback -> IO ()
 foreign import ccall glfwSetCharCallback          :: FunPtr GlfwCharCallback -> IO ()
 foreign import ccall glfwSetMouseButtonCallback   :: FunPtr GlfwMouseButtonCallback -> IO ()
@@ -1145,15 +1143,6 @@ getCursorPosition wd =
 setCursorPosition :: Window -> Int -> Int -> IO ()
 setCursorPosition wd x y =
     glfwSetCursorPos wd (toC x) (toC y)
-
-getScrollOffset :: Window -> IO (Int, Int)
-getScrollOffset wd = 
-    alloca $ \ox ->
-    alloca $ \oy -> do
-        glfwGetScrollOffset wd ox oy
-        x <- peek ox
-        y <- peek oy
-        return (fromC x, fromC y)
 
 setCursorMode :: Window -> CursorMode -> IO ()
 setCursorMode wd cm = glfwSetInputMode wd #{const GLFW_CURSOR_MODE} (toC cm)
