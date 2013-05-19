@@ -17,7 +17,6 @@ module Graphics.UI.GLFW
   , getMonitors
   , getPrimaryMonitor
   , getMonitorName
-  , getMonitorParam
   , setMonitorCallback
     --
   , MonitorCallback
@@ -126,11 +125,14 @@ module Graphics.UI.GLFW
   , swapBuffers
   , setSwapInterval
   , extensionIsSupported
+  , openGLVersion
   , openGLContextIsForwardCompatible
   , openGLContextIsDebugContext
   , openGLContextRobustness
   , getOpenGLProfile
+  , ClientAPI(..)
   , OpenGLProfile(..)
+  , OpenGLRobustness(..)
   ) where
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -162,7 +164,6 @@ foreign import ccall glfwSetErrorCallback         :: FunPtr GlfwErrorCallback ->
 
 foreign import ccall glfwGetMonitors              :: Ptr CInt -> IO (Ptr Monitor)
 foreign import ccall glfwGetPrimaryMonitor        :: IO (Monitor)
-foreign import ccall glfwGetMonitorParam          :: Monitor -> CInt -> IO CInt
 foreign import ccall glfwGetMonitorName           :: Monitor -> IO CString
 foreign import ccall glfwSetMonitorCallback       :: FunPtr GlfwMonitorCallback -> IO ()
 
@@ -304,9 +305,9 @@ getVersion =
     alloca $ \p1 ->
     alloca $ \p2 -> do
         glfwGetVersion p0 p1 p2
-        v0 <- fromC `fmap` peek p0
-        v1 <- fromC `fmap` peek p1
-        v2 <- fromC `fmap` peek p2
+        v0 <- fromC <$> peek p0
+        v1 <- fromC <$> peek p1
+        v2 <- fromC <$> peek p2
         return $ Version [v0, v1, v2] []
 
 getVersionString :: IO String
@@ -334,9 +335,6 @@ getMonitors =
 getPrimaryMonitor :: IO (Monitor)
 getPrimaryMonitor = glfwGetPrimaryMonitor
 
-getMonitorParam :: Monitor -> MonitorParam -> IO Int
-getMonitorParam mon par = fromC `fmap` glfwGetMonitorParam mon (toC par)
-
 getMonitorName :: Monitor -> IO String
 getMonitorName mon = glfwGetMonitorName mon >>= peekCString
 
@@ -346,31 +344,19 @@ setMonitorCallback cb = do
   glfwSetMonitorCallback ccb
   storeCallback monitorCallback ccb
 
-data MonitorParam = MonitorWidth
-                  | MonitorHeight
-                  | MonitorPositionX
-                  | MonitorPositionY
-
-instance C MonitorParam CInt where
-  toC pr = case pr of
-    MonitorWidth -> #{const GLFW_MONITOR_WIDTH_MM}
-    MonitorHeight -> #{const GLFW_MONITOR_HEIGHT_MM}
-    MonitorPositionX -> #{const GLFW_MONITOR_POS_X}
-    MonitorPositionY -> #{const GLFW_MONITOR_POS_Y}
-
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Video mode information
 
 getVideoModes :: IO [VideoMode]
 getVideoModes  =
-  alloca $ \ptr -> do
+  alloca $! \ptr -> do
       vms <- glfwGetVideoModes ptr
       cnt <- peek ptr
       peekArray (fromC cnt) vms
 
 getVideoMode :: IO VideoMode
 getVideoMode =
-    alloca $ \ptr -> do
+    alloca $! \ptr -> do
         glfwGetVideoMode ptr
         peek ptr
 
@@ -528,23 +514,23 @@ getWindowUserPointer = glfwGetWindowUserPointer
 
 getWindowParameter :: Window -> WindowParameter -> IO Int
 getWindowParameter wd wv =
-    fromC `fmap` glfwGetWindowParam wd (toC wv)
+    fromC <$> glfwGetWindowParam wd (toC wv)
 
 windowIsFocused :: Window -> IO Bool
 windowIsFocused wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_FOCUSED}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_FOCUSED}
 
 windowIsIconified :: Window -> IO Bool
 windowIsIconified wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_ICONIFIED}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_ICONIFIED}
 
 windowIsResizable :: Window -> IO Bool
 windowIsResizable wd =
-    (not . fromC) `fmap` glfwGetWindowParam wd #{const GLFW_RESIZABLE}
+    (not . fromC) <$> glfwGetWindowParam wd #{const GLFW_RESIZABLE}
 
 windowSupportsStereoRendering :: Window -> IO Bool
 windowSupportsStereoRendering wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_STEREO}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_STEREO}
 
 setWindowPositionCallback :: WindowPositionCallback -> IO ()
 setWindowPositionCallback cb = do
@@ -647,7 +633,7 @@ data DisplayOptions = DisplayOptions
   , displayOptions_openGLDebugContext      :: Bool
   , displayOptions_openGLRobustness        :: OpenGLRobustness
 
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Show)
 
 defaultDisplayOptions :: DisplayOptions
 defaultDisplayOptions =
@@ -729,7 +715,7 @@ instance C InputMode CInt where
 
 getKey :: Window -> Key -> IO KeyState
 getKey wd k =
-    fromC `fmap` glfwGetKey wd (toC k)
+    fromC <$> glfwGetKey wd (toC k)
 
 setKeyCallback :: KeyCallback -> IO ()
 setKeyCallback cb = do
@@ -1129,7 +1115,7 @@ instance C Key CInt where
 
 getMouseButton :: Window -> MouseButton -> IO KeyState
 getMouseButton wd mb =
-    fromC `fmap` glfwGetMouseButton wd (toC mb)
+    fromC <$> glfwGetMouseButton wd (toC mb)
 
 getCursorPosition :: Window -> IO (Int, Int)
 getCursorPosition wd =
@@ -1226,25 +1212,25 @@ instance C CursorMode CInt where
 
 joystickIsPresent :: Joystick -> IO Bool
 joystickIsPresent j =
-    fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_PRESENT}
+    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_PRESENT}
 
 getJoystickName :: Joystick -> IO String
 getJoystickName j = glfwGetJoystickName (toC j) >>= peekCString
 
 getNumJoystickAxes :: Joystick -> IO Int
 getNumJoystickAxes j =
-    fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_AXES}
+    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_AXES}
 
 getNumJoystickButtons :: Joystick -> IO Int
 getNumJoystickButtons j =
-    fromC `fmap` glfwGetJoystickParam (toC j) #{const GLFW_BUTTONS}
+    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_BUTTONS}
 
 getJoystickAxes :: Joystick -> Int -> IO [Float]
 getJoystickAxes j m =
     if m < 1
       then return []
       else allocaArray m $ \ptr -> do
-               n <- fromC `fmap` glfwGetJoystickAxes (toC j) ptr (toC m)
+               n <- fromC <$> glfwGetJoystickAxes (toC j) ptr (toC m)
                a <- peekArray n ptr
                return $ map fromC a
 
@@ -1253,7 +1239,7 @@ joystickButtonsArePressed j m =
     if m < 1
       then return []
       else allocaArray m $ \ptr -> do
-               n <- fromC `fmap` glfwGetJoystickButtons (toC j) ptr (toC m)
+               n <- fromC <$> glfwGetJoystickButtons (toC j) ptr (toC m)
                a <- peekArray n ptr :: IO [CUChar]
                return $ map (((#{const GLFW_PRESS} :: Int) ==) . fromIntegral) a
 
@@ -1320,7 +1306,7 @@ getClipboardString wd =
 
 getTime :: IO Double
 getTime =
-    realToFrac `fmap` glfwGetTime
+    realToFrac <$> glfwGetTime
 
 setTime :: Double -> IO ()
 setTime =
@@ -1347,23 +1333,30 @@ setSwapInterval =
 
 extensionIsSupported :: String -> IO Bool
 extensionIsSupported ext = do
-    fromC `fmap` withCString ext glfwExtensionSupported
+    fromC <$> withCString ext glfwExtensionSupported
+
+openGLVersion :: Window -> IO (Int, Int, Int)
+openGLVersion wd = do
+    major <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_VERSION_MAJOR}
+    minor <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_VERSION_MINOR}
+    rev <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_REVISION}
+    return (major, minor, rev)
 
 openGLContextIsForwardCompatible :: Window -> IO Bool
 openGLContextIsForwardCompatible wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_OPENGL_FORWARD_COMPAT}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_FORWARD_COMPAT}
 
 openGLContextIsDebugContext :: Window -> IO Bool
 openGLContextIsDebugContext wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_OPENGL_DEBUG_CONTEXT}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_DEBUG_CONTEXT}
 
 openGLContextRobustness :: Window -> IO OpenGLRobustness
 openGLContextRobustness wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_CONTEXT_ROBUSTNESS}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_ROBUSTNESS}
 
 getOpenGLProfile :: Window -> IO OpenGLProfile
 getOpenGLProfile wd =
-    fromC `fmap` glfwGetWindowParam wd #{const GLFW_OPENGL_PROFILE}
+    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_PROFILE}
 
 -- -- -- -- -- -- -- -- --
 
