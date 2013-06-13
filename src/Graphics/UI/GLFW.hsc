@@ -291,12 +291,10 @@ foreign import ccall "wrapper" wrapScrollCallback         :: GlfwScrollCallback 
 -- Initialization, termination version querying
 
 initialize :: IO Bool
-initialize =
-    fromC <$> glfwInit
+initialize = fromC <$> glfwInit
 
 terminate :: IO ()
-terminate =
-    glfwTerminate
+terminate = glfwTerminate
 
 getVersion :: IO Version
 getVersion =
@@ -394,12 +392,10 @@ setGamma :: Float -> IO ()
 setGamma g = glfwSetGamma $ toC g
 
 getGammaRamp :: IO GammaRamp
-getGammaRamp =
-    glfwGetGammaRamp >>= peek
+getGammaRamp = glfwGetGammaRamp >>= peek
 
 setGammaRamp :: GammaRamp -> IO ()
-setGammaRamp gr =
-    with gr glfwSetGammaRamp
+setGammaRamp gr = with gr glfwSetGammaRamp
 
 -- -- -- -- -- -- -- -- -- --
 data GammaRamp = GammaRamp
@@ -435,39 +431,39 @@ createWindow displOpts = do
 
     glfwDefaultWindowHints
     -- Add hints.
-    glfwWindowHint #{const GLFW_CLIENT_API} $ toC (displayOptionsClientAPI displOpts)
-    glfwWindowHint #{const GLFW_RED_BITS} $ toC (displayOptionsNumRedBits displOpts)
-    glfwWindowHint #{const GLFW_GREEN_BITS} $ toC (displayOptionsNumGreenBits displOpts)
-    glfwWindowHint #{const GLFW_BLUE_BITS} $ toC (displayOptionsNumBlueBits displOpts)
-    glfwWindowHint #{const GLFW_ALPHA_BITS} $ toC (displayOptionsNumAlphaBits displOpts)
-    glfwWindowHint #{const GLFW_DEPTH_BITS} $ toC (displayOptionsNumDepthBits displOpts)
-    glfwWindowHint #{const GLFW_SRGB_CAPABLE} $ toC (displayOptionsSRGBCapable displOpts)
+    glfwWindowHint #{const GLFW_CLIENT_API} $ toC (doClientAPI displOpts)
+    glfwWindowHint #{const GLFW_RED_BITS} $ toC (doNumRedBits displOpts)
+    glfwWindowHint #{const GLFW_GREEN_BITS} $ toC (doNumGreenBits displOpts)
+    glfwWindowHint #{const GLFW_BLUE_BITS} $ toC (doNumBlueBits displOpts)
+    glfwWindowHint #{const GLFW_ALPHA_BITS} $ toC (doNumAlphaBits displOpts)
+    glfwWindowHint #{const GLFW_DEPTH_BITS} $ toC (doNumDepthBits displOpts)
+    glfwWindowHint #{const GLFW_SRGB_CAPABLE} $ toC (doSRGBCapable displOpts)
 
-    glfwWindowHint #{const GLFW_ACCUM_RED_BITS} $ toC (displayOptionsAccumNumRedBits displOpts)
-    glfwWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (displayOptionsAccumNumGreenBits displOpts)
-    glfwWindowHint #{const GLFW_ACCUM_BLUE_BITS} $ toC (displayOptionsAccumNumBlueBits displOpts)
-    glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (displayOptionsAccumNumAlphaBits displOpts)
-    glfwWindowHint #{const GLFW_AUX_BUFFERS} $ toC (displayOptionsNumAuxiliaryBuffers displOpts)
-    glfwWindowHint #{const GLFW_SAMPLES} $ toC (displayOptionsNumFsaaSamples displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_RED_BITS} $ toC (doAccumNumRedBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_GREEN_BITS} $ toC (doAccumNumGreenBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_BLUE_BITS} $ toC (doAccumNumBlueBits displOpts)
+    glfwWindowHint #{const GLFW_ACCUM_ALPHA_BITS} $ toC (doAccumNumAlphaBits displOpts)
+    glfwWindowHint #{const GLFW_AUX_BUFFERS} $ toC (doNumAuxiliaryBuffers displOpts)
+    glfwWindowHint #{const GLFW_SAMPLES} $ toC (doNumFsaaSamples displOpts)
 
-    glfwWindowHint #{const GLFW_RESIZABLE} $ toC (displayOptionsResizable displOpts)
-    glfwWindowHint #{const GLFW_VISIBLE} $ toC (displayOptionsVisible displOpts)
-    glfwWindowHint #{const GLFW_STEREO} $ toC (displayOptionsStereoRendering displOpts)
+    glfwWindowHint #{const GLFW_RESIZABLE} $ toC (doResizable displOpts)
+    glfwWindowHint #{const GLFW_VISIBLE} $ toC (doVisible displOpts)
+    glfwWindowHint #{const GLFW_STEREO} $ toC (doStereoRendering displOpts)
 
-    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MAJOR} $ toC (fst $ displayOptionsOpenGLVersion displOpts)
-    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MINOR} $ toC (snd $ displayOptionsOpenGLVersion displOpts)
-    glfwWindowHint #{const GLFW_CONTEXT_ROBUSTNESS}  $ toC (displayOptionsOpenGLRobustness displOpts)
-    glfwWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC (displayOptionsOpenGLForwardCompatible displOpts)
-    glfwWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT} $ toC (displayOptionsOpenGLDebugContext displOpts)
-    glfwWindowHint #{const GLFW_OPENGL_PROFILE} $ toC (displayOptionsOpenGLProfile displOpts)
+    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MAJOR} $ toC (fst $ doOpenGLVersion displOpts)
+    glfwWindowHint #{const GLFW_CONTEXT_VERSION_MINOR} $ toC (snd $ doOpenGLVersion displOpts)
+    glfwWindowHint #{const GLFW_CONTEXT_ROBUSTNESS}  $ toC (doOpenGLRobustness displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_FORWARD_COMPAT} $ toC (doOpenGLForwardCompatible displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_DEBUG_CONTEXT} $ toC (doOpenGLDebugContext displOpts)
+    glfwWindowHint #{const GLFW_OPENGL_PROFILE} $ toC (doOpenGLProfile displOpts)
 
     -- Open the window.
-    withCString (displayOptionsTitle displOpts) (\title -> glfwCreateWindow
-        (toC $ displayOptionsWidth displOpts)
-        (toC $ displayOptionsHeight displOpts)
+    withCString (doTitle displOpts) (\title -> glfwCreateWindow
+        (toC $ doWidth displOpts)
+        (toC $ doHeight displOpts)
         title
-        (fromMaybe nullPtr (displayOptionsMonitor displOpts))
-        (fromMaybe nullPtr (displayOptionsShare displOpts)))
+        (fromMaybe nullPtr (doMonitor displOpts))
+        (fromMaybe nullPtr (doShare displOpts)))
 
 destroyWindow :: Window -> IO ()
 destroyWindow = glfwDestroyWindow
@@ -602,78 +598,76 @@ instance C WindowParameter CInt where
       NumFsaaSamples    -> #const GLFW_SAMPLES
 
 data DisplayOptions = DisplayOptions
-  { displayOptionsWidth                   :: Int
-  , displayOptionsHeight                  :: Int
-  , displayOptionsNumRedBits              :: Int
-  , displayOptionsNumGreenBits            :: Int
-  , displayOptionsNumBlueBits             :: Int
-  , displayOptionsNumAlphaBits            :: Int
-  , displayOptionsNumDepthBits            :: Int
-  , displayOptionsNumStencilBits          :: Int
-  , displayOptionsTitle                   :: String
-  , displayOptionsMonitor                 :: Maybe Monitor
-  , displayOptionsShare                   :: Maybe Window
-  , displayOptionsAccumNumRedBits         :: Int
-  , displayOptionsAccumNumGreenBits       :: Int
-  , displayOptionsAccumNumBlueBits        :: Int
-  , displayOptionsAccumNumAlphaBits       :: Int
-  , displayOptionsNumAuxiliaryBuffers     :: Int
-  , displayOptionsNumFsaaSamples          :: Int
-  , displayOptionsSRGBCapable             :: Bool
-  , displayOptionsResizable               :: Bool
-  , displayOptionsVisible                 :: Bool
-  , displayOptionsStereoRendering         :: Bool
-  , displayOptionsClientAPI               :: ClientAPI
-  , displayOptionsOpenGLProfile           :: OpenGLProfile
-  , displayOptionsOpenGLVersion           :: (Int, Int)
-  , displayOptionsOpenGLForwardCompatible :: Bool
-  , displayOptionsOpenGLDebugContext      :: Bool
-  , displayOptionsOpenGLRobustness        :: OpenGLRobustness
+  { doWidth                   :: Int
+  , doHeight                  :: Int
+  , doNumRedBits              :: Int
+  , doNumGreenBits            :: Int
+  , doNumBlueBits             :: Int
+  , doNumAlphaBits            :: Int
+  , doNumDepthBits            :: Int
+  , doNumStencilBits          :: Int
+  , doTitle                   :: String
+  , doMonitor                 :: Maybe Monitor
+  , doShare                   :: Maybe Window
+  , doAccumNumRedBits         :: Int
+  , doAccumNumGreenBits       :: Int
+  , doAccumNumBlueBits        :: Int
+  , doAccumNumAlphaBits       :: Int
+  , doNumAuxiliaryBuffers     :: Int
+  , doNumFsaaSamples          :: Int
+  , doSRGBCapable             :: Bool
+  , doResizable               :: Bool
+  , doVisible                 :: Bool
+  , doStereoRendering         :: Bool
+  , doClientAPI               :: ClientAPI
+  , doOpenGLProfile           :: OpenGLProfile
+  , doOpenGLVersion           :: (Int, Int)
+  , doOpenGLForwardCompatible :: Bool
+  , doOpenGLDebugContext      :: Bool
+  , doOpenGLRobustness        :: OpenGLRobustness
 
   } deriving (Eq, Show)
 
 defaultDisplayOptions :: DisplayOptions
 defaultDisplayOptions =
     DisplayOptions
-      { displayOptionsWidth                   = 960
-      , displayOptionsHeight                  = 640
-      , displayOptionsNumRedBits              = 8
-      , displayOptionsNumGreenBits            = 8
-      , displayOptionsNumBlueBits             = 8
-      , displayOptionsNumAlphaBits            = 8
-      , displayOptionsNumDepthBits            = 24
-      , displayOptionsNumStencilBits          = 8
-      , displayOptionsTitle                   = "GLFW3"
-      , displayOptionsMonitor                 = Nothing
-      , displayOptionsShare                   = Nothing
-      , displayOptionsAccumNumRedBits         = 0
-      , displayOptionsAccumNumGreenBits       = 0
-      , displayOptionsAccumNumBlueBits        = 0
-      , displayOptionsAccumNumAlphaBits       = 0
-      , displayOptionsNumAuxiliaryBuffers     = 0
-      , displayOptionsNumFsaaSamples          = 0
-      , displayOptionsSRGBCapable             = False
-      , displayOptionsResizable               = True
-      , displayOptionsVisible                 = True
-      , displayOptionsStereoRendering         = False
-      , displayOptionsClientAPI               = OpenGL
-      , displayOptionsOpenGLVersion           = (3,2)
-      , displayOptionsOpenGLForwardCompatible = True
-      , displayOptionsOpenGLDebugContext      = False
-      , displayOptionsOpenGLProfile           = CoreProfile
-      , displayOptionsOpenGLRobustness        = NoRobustness
+      { doWidth                   = 960
+      , doHeight                  = 640
+      , doNumRedBits              = 8
+      , doNumGreenBits            = 8
+      , doNumBlueBits             = 8
+      , doNumAlphaBits            = 8
+      , doNumDepthBits            = 24
+      , doNumStencilBits          = 8
+      , doTitle                   = "GLFW3"
+      , doMonitor                 = Nothing
+      , doShare                   = Nothing
+      , doAccumNumRedBits         = 0
+      , doAccumNumGreenBits       = 0
+      , doAccumNumBlueBits        = 0
+      , doAccumNumAlphaBits       = 0
+      , doNumAuxiliaryBuffers     = 0
+      , doNumFsaaSamples          = 0
+      , doSRGBCapable             = False
+      , doResizable               = True
+      , doVisible                 = True
+      , doStereoRendering         = False
+      , doClientAPI               = OpenGL
+      , doOpenGLVersion           = (3,2)
+      , doOpenGLForwardCompatible = True
+      , doOpenGLDebugContext      = False
+      , doOpenGLProfile           = CoreProfile
+      , doOpenGLRobustness        = NoRobustness
       }
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Event handling
 
 pollEvents :: IO ()
-pollEvents =
-    glfwPollEvents
+pollEvents = glfwPollEvents
 
 waitEvents :: IO ()
-waitEvents =
-    glfwWaitEvents
+waitEvents = glfwWaitEvents
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Input handling
@@ -1302,12 +1296,10 @@ getClipboardString wd =
 -- Time
 
 getTime :: IO Double
-getTime =
-    realToFrac <$> glfwGetTime
+getTime = realToFrac <$> glfwGetTime
 
 setTime :: Double -> IO ()
-setTime =
-    glfwSetTime . realToFrac
+setTime = glfwSetTime . realToFrac
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- OpenGL context
@@ -1316,16 +1308,13 @@ makeContextCurrent :: Window -> IO ()
 makeContextCurrent = glfwMakeContextCurrent
 
 getCurrentContext :: IO Window
-getCurrentContext =
-    glfwGetCurrentContext
+getCurrentContext = glfwGetCurrentContext
 
 swapBuffers :: Window -> IO ()
-swapBuffers =
-    glfwSwapBuffers
+swapBuffers = glfwSwapBuffers
 
 swapInterval :: Int -> IO ()
-swapInterval =
-    glfwSwapInterval . toC
+swapInterval = glfwSwapInterval . toC
 
 extensionIsSupported :: String -> IO Bool
 extensionIsSupported ext = fromC <$> withCString ext glfwExtensionSupported
@@ -1402,7 +1391,7 @@ instance C OpenGLRobustness CInt where
         #{const GLFW_NO_ROBUSTNESS}         -> NoRobustness
         #{const GLFW_NO_RESET_NOTIFICATION} -> NoResetNotification
         #{const GLFW_LOSE_CONTEXT_ON_RESET} -> LoseContextOnReset
-        _                                          -> makeFromCError "OpenGLRobustness" i
+        _                                   -> makeFromCError "OpenGLRobustness" i
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
