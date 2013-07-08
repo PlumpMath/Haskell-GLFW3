@@ -183,7 +183,7 @@ foreign import ccall glfwRestoreWindow            :: Window -> IO ()
 foreign import ccall glfwShowWindow               :: Window -> IO ()
 foreign import ccall glfwHideWindow               :: Window -> IO ()
 foreign import ccall glfwGetWindowMonitor         :: Window -> IO Monitor
-foreign import ccall glfwGetWindowParam           :: Window -> CInt -> IO CInt
+foreign import ccall glfwGetWindowAttrib           :: Window -> CInt -> IO CInt
 foreign import ccall glfwSetWindowUserPointer     :: Window -> Ptr () -> IO ()
 foreign import ccall glfwGetWindowUserPointer     :: Window -> IO (Ptr ())
 foreign import ccall glfwSetWindowPosCallback :: FunPtr GlfwWindowPositionCallback -> IO ()
@@ -506,23 +506,23 @@ getWindowUserPointer = glfwGetWindowUserPointer
 
 getWindowParameter :: Window -> WindowParameter -> IO Int
 getWindowParameter wd wv =
-    fromC <$> glfwGetWindowParam wd (toC wv)
+    fromC <$> glfwGetWindowAttrib wd (toC wv)
 
 windowIsFocused :: Window -> IO Bool
 windowIsFocused wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_FOCUSED}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_FOCUSED}
 
 windowIsIconified :: Window -> IO Bool
 windowIsIconified wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_ICONIFIED}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_ICONIFIED}
 
 windowIsResizable :: Window -> IO Bool
 windowIsResizable wd =
-    (not . fromC) <$> glfwGetWindowParam wd #{const GLFW_RESIZABLE}
+    (not . fromC) <$> glfwGetWindowAttrib wd #{const GLFW_RESIZABLE}
 
 windowSupportsStereoRendering :: Window -> IO Bool
 windowSupportsStereoRendering wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_STEREO}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_STEREO}
 
 setWindowPositionCallback :: WindowPositionCallback -> IO ()
 setWindowPositionCallback cb = do
@@ -1310,26 +1310,26 @@ extensionIsSupported ext = fromC <$> withCString ext glfwExtensionSupported
 
 openGLVersion :: Window -> IO (Int, Int, Int)
 openGLVersion wd = do
-    major <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_VERSION_MAJOR}
-    minor <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_VERSION_MINOR}
-    rev <- fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_REVISION}
+    major <- fromC <$> glfwGetWindowAttrib wd #{const GLFW_CONTEXT_VERSION_MAJOR}
+    minor <- fromC <$> glfwGetWindowAttrib wd #{const GLFW_CONTEXT_VERSION_MINOR}
+    rev <- fromC <$> glfwGetWindowAttrib wd #{const GLFW_CONTEXT_REVISION}
     return (major, minor, rev)
 
 openGLContextIsForwardCompatible :: Window -> IO Bool
 openGLContextIsForwardCompatible wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_FORWARD_COMPAT}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_OPENGL_FORWARD_COMPAT}
 
 openGLContextIsDebugContext :: Window -> IO Bool
 openGLContextIsDebugContext wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_DEBUG_CONTEXT}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_OPENGL_DEBUG_CONTEXT}
 
 openGLContextRobustness :: Window -> IO OpenGLRobustness
 openGLContextRobustness wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_CONTEXT_ROBUSTNESS}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_CONTEXT_ROBUSTNESS}
 
 openGLProfile :: Window -> IO OpenGLProfile
 openGLProfile wd =
-    fromC <$> glfwGetWindowParam wd #{const GLFW_OPENGL_PROFILE}
+    fromC <$> glfwGetWindowAttrib wd #{const GLFW_OPENGL_PROFILE}
 
 -- -- -- -- -- -- -- -- --
 
