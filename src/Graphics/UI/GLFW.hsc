@@ -152,7 +152,7 @@ import Data.Functor
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
-#include <GL/glfw3.h>
+#include <GLFW/glfw3.h>
 
 foreign import ccall glfwInit                     :: IO CInt
 foreign import ccall glfwTerminate                :: IO ()
