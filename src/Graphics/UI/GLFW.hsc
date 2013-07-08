@@ -691,12 +691,12 @@ data InputMode
 
 instance C InputMode CInt where
   toC im = case im of
-    CursorMode -> #{const GLFW_CURSOR_MODE}
+    Cursor -> #{const GLFW_CURSOR}
     StickyKeys -> #{const GLFW_STICKY_KEYS}
     StickyMouseButtons -> #{const GLFW_STICKY_MOUSE_BUTTONS}
 
   fromC i = case i of
-    #{const GLFW_CURSOR_MODE}          -> CursorMode
+    #{const GLFW_CURSOR}               -> Cursor
     #{const GLFW_STICKY_KEYS}          -> StickyKeys
     #{const GLFW_STICKY_MOUSE_BUTTONS} -> StickyMouseButtons
     _                                  -> makeFromCError "InputMode" i
@@ -1122,11 +1122,11 @@ setCursorPosition wd x y =
     glfwSetCursorPos wd (toC x) (toC y)
 
 setCursorMode :: Window -> CursorMode -> IO ()
-setCursorMode wd cm = glfwSetInputMode wd #{const GLFW_CURSOR_MODE} (toC cm)
+setCursorMode wd cm = glfwSetInputMode wd #{const GLFW_CURSOR} (toC cm)
 
 getCursorMode :: Window -> IO CursorMode
 getCursorMode wd = do
-    m <- glfwGetInputMode wd #{const GLFW_CURSOR_MODE} 
+    m <- glfwGetInputMode wd #{const GLFW_CURSOR} 
     return $ fromC m
 
 setMouseButtonCallback :: MouseButtonCallback -> IO ()
@@ -1183,19 +1183,19 @@ instance C MouseButton CInt where
       _                            -> makeFromCError "MouseButton" i
 
 data CursorMode
-  = Normal | Hidden | Captured
+  = Normal | Hidden | Disabled
   deriving (Bounded, Enum, Eq, Ord, Read, Show)
 
 instance C CursorMode CInt where
   toC cb = case cb of
       Normal   -> #const GLFW_CURSOR_NORMAL
       Hidden   -> #const GLFW_CURSOR_HIDDEN
-      Captured -> #const GLFW_CURSOR_CAPTURED
+      Disabled -> #const GLFW_CURSOR_DISABLED
 
   fromC i = case i of
       #{const GLFW_CURSOR_NORMAL}   -> Normal
       #{const GLFW_CURSOR_HIDDEN}   -> Hidden
-      #{const GLFW_CURSOR_CAPTURED} -> Captured
+      #{const GLFW_CURSOR_DISABLED} -> Disabled
       _                             -> makeFromCError "CursorMode" i
 
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -1366,11 +1366,11 @@ data OpenGLProfile
 
 instance C OpenGLProfile CInt where
   toC op = case op of
-      NoProfile       -> #{const GLFW_OPENGL_NO_PROFILE}
+      AnyProfile           -> #{const GLFW_OPENGL_ANY_PROFILE}
       CoreProfile          -> #{const GLFW_OPENGL_CORE_PROFILE}
       CompatibilityProfile -> #{const GLFW_OPENGL_COMPAT_PROFILE}
   fromC i = case i of
-      #{const GLFW_OPENGL_NO_PROFILE}     -> NoProfile
+      #{const GLFW_OPENGL_ANY_PROFILE}    -> AnyProfile
       #{const GLFW_OPENGL_CORE_PROFILE}   -> CoreProfile
       #{const GLFW_OPENGL_COMPAT_PROFILE} -> CompatibilityProfile
       _                                   -> makeFromCError "OpenGLProfile" i
