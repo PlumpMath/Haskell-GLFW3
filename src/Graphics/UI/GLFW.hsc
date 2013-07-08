@@ -101,10 +101,8 @@ module Graphics.UI.GLFW
   , CursorMode(..)
 
     -- *   Joystick input
-  , joystickIsPresent
+  , joystickPresent
   , getJoystickName
-  , getNumJoystickAxes
-  , getNumJoystickButtons
   , getJoystickAxes
   , joystickButtonsArePressed
     --
@@ -211,7 +209,7 @@ foreign import ccall glfwSetCursorPosCallback     :: FunPtr GlfwCursorPositionCa
 foreign import ccall glfwSetCursorEnterCallback   :: FunPtr GlfwCursorEnterCallback -> IO ()
 foreign import ccall glfwSetScrollCallback        :: FunPtr GlfwScrollCallback -> IO ()
 
-foreign import ccall glfwGetJoystickParam         :: CInt -> CInt -> IO CInt
+foreign import ccall glfwJoystickPresent          :: CInt -> IO CInt
 foreign import ccall glfwGetJoystickAxes          :: CInt -> Ptr CFloat -> CInt -> IO CInt
 foreign import ccall glfwGetJoystickButtons       :: CInt -> Ptr CUChar -> CInt -> IO CInt
 foreign import ccall glfwGetJoystickName          :: CInt -> IO CString
@@ -684,7 +682,7 @@ setInputMode wd im b =
 -- -- -- -- -- -- -- -- -- --
 
 data InputMode
-  = CursorMode
+  = Cursor
   | StickyKeys
   | StickyMouseButtons
   deriving (Eq, Ord, Bounded, Enum, Read, Show)
@@ -1201,20 +1199,11 @@ instance C CursorMode CInt where
 -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 -- Joystick
 
-joystickIsPresent :: Joystick -> IO Bool
-joystickIsPresent j =
-    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_PRESENT}
+joystickPresent :: Joystick -> IO Bool
+joystickPresent j = fromC <$> glfwJoystickPresent (toC j)
 
 getJoystickName :: Joystick -> IO String
 getJoystickName j = glfwGetJoystickName (toC j) >>= peekCString
-
-getNumJoystickAxes :: Joystick -> IO Int
-getNumJoystickAxes j =
-    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_AXES}
-
-getNumJoystickButtons :: Joystick -> IO Int
-getNumJoystickButtons j =
-    fromC <$> glfwGetJoystickParam (toC j) #{const GLFW_BUTTONS}
 
 getJoystickAxes :: Joystick -> Int -> IO [Float]
 getJoystickAxes j m =
@@ -1359,7 +1348,7 @@ instance C ClientAPI CInt where
     _ -> makeFromCError "ClientAPI" i
 
 data OpenGLProfile
-  = NoProfile
+  = AnyProfile
   | CoreProfile
   | CompatibilityProfile
   deriving (Eq, Ord, Bounded, Enum, Read, Show)
